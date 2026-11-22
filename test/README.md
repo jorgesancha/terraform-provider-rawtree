@@ -2,7 +2,23 @@
 
 This directory contains everything needed to run acceptance tests for the Rawtree Terraform provider.
 
-## Prerequisites
+## RawTree database
+
+The database test uses the RawTree API and Terraform 1.5 or later for import blocks. Start a local RawTree stack and export `RAWTREE_URL`, `RAWTREE_MANAGEMENT_TOKEN`, `RAWTREE_TEST_ORGANIZATION`, and `RAWTREE_TEST_CLUSTER` for that stack.
+Run this command from the repository root.
+
+```sh
+TF_ACC=1 go test -count=1 -v -run '^TestAccDatabase$' ./internal/resources/platform/database/
+```
+
+The test creates a unique database, checks the plan, imports the database, and destroys it.
+
+## Upgrade from v0.1.0
+
+Run `bash test/upgrade/plan.sh` from the provider repository. It builds the current provider and requires an empty Terraform plan against a synthetic v0.1.0 WAF state.
+The check skips AWS refresh and uses a temporary Terraform configuration.
+
+## Ingestion prerequisites
 
 - AWS credentials configured (`aws configure` or env vars)
 - Rawtree account with an API key
@@ -43,13 +59,13 @@ export RAWTREE_ORG="my-org"
 export RAWTREE_PROJECT="my-project"
 
 # Run S3 ingestion tests
-TF_ACC=1 go test -v -timeout 30m ./internal/resources/s3_ingestion/
+TF_ACC=1 go test -v -timeout 30m ./internal/resources/integrations/s3_ingestion/
 
 # Run WAF ingestion tests (all: unit + infra provisioning + E2E data validation)
-TF_ACC=1 go test -v -timeout 45m ./internal/resources/waf_ingestion/
+TF_ACC=1 go test -v -timeout 45m ./internal/resources/integrations/waf_ingestion/
 
 # Run CloudFront ingestion tests (all: unit + infra provisioning + E2E data validation)
-TF_ACC=1 go test -v -timeout 60m ./internal/resources/cloudfront_ingestion/
+TF_ACC=1 go test -v -timeout 60m ./internal/resources/integrations/cloudfront_ingestion/
 
 # Run Supabase CDC ingestion lifecycle tests (no E2E data validation)
 #   Required (in addition to RAWTREE_API_KEY/ORG/PROJECT and AWS creds):
@@ -66,7 +82,7 @@ TF_ACC=1 go test -v -timeout 60m ./internal/resources/cloudfront_ingestion/
 # These tests run with run_initialization_task=false and only validate the
 # AWS resource lifecycle (cluster/service/task def/log group/role/secrets) —
 # the worker container is not required to actually reach Postgres.
-TF_ACC=1 go test -v -timeout 30m ./internal/resources/supabase_cdc_ingestion/
+TF_ACC=1 go test -v -timeout 30m ./internal/resources/integrations/supabase_cdc_ingestion/
 
 # Run the Supabase CDC end-to-end data test
 #
@@ -78,7 +94,7 @@ TF_ACC=1 go test -v -timeout 30m ./internal/resources/supabase_cdc_ingestion/
 #   CSV, set env vars) is in test/supabase/README.md.
 TF_ACC=1 go test -v -timeout 30m \
   -run TestAccSupabaseCDCIngestion_endToEndData \
-  ./internal/resources/supabase_cdc_ingestion/
+  ./internal/resources/integrations/supabase_cdc_ingestion/
 ```
 
 ## 3. Firehose Transform Stub
@@ -156,10 +172,10 @@ full suite above, but you can target them individually:
 
 ```sh
 # WAF E2E only (~9 min — creates Firehose, generates WAF traffic, queries Rawtree)
-TF_ACC=1 go test -v -timeout 45m -run TestAccWafIngestion_endToEndData ./internal/resources/waf_ingestion/
+TF_ACC=1 go test -v -timeout 45m -run TestAccWafIngestion_endToEndData ./internal/resources/integrations/waf_ingestion/
 
 # CloudFront E2E only (~10 min — creates distribution + real-time logs, validates data)
-TF_ACC=1 go test -v -timeout 60m -run TestAccCloudfrontIngestion_endToEndData ./internal/resources/cloudfront_ingestion/
+TF_ACC=1 go test -v -timeout 60m -run TestAccCloudfrontIngestion_endToEndData ./internal/resources/integrations/cloudfront_ingestion/
 ```
 
 ## 5. Interactive lab (manual testing)

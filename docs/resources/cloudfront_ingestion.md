@@ -1,3 +1,7 @@
+---
+subcategory: "Integrations"
+---
+
 # rawtree_cloudfront_ingestion
 
 Manages real-time CloudFront log ingestion into Rawtree. Creates a Kinesis Data Stream, Kinesis Data Firehose delivery stream with HTTP endpoint destination, and a CloudFront real-time log configuration to stream CloudFront access logs to a Rawtree table, with S3 backup for failed deliveries.

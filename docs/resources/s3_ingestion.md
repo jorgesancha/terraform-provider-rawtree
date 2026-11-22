@@ -1,6 +1,6 @@
 ---
 page_title: "rawtree_s3_ingestion Resource - Rawtree"
-subcategory: ""
+subcategory: "Integrations"
 description: |-
   Manages S3 data ingestion into Rawtree.
 ---

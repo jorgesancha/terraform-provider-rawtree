@@ -1,53 +1,53 @@
-package cloudfront_ingestion
+package waf_ingestion
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/cloudfront"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/firehose"
 	fhtypes "github.com/aws/aws-sdk-go-v2/service/firehose/types"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/kinesis"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/aws/aws-sdk-go-v2/service/wafv2"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
 	"github.com/rawtreedb/terraform-provider-rawtree/internal/client"
+	"github.com/rawtreedb/terraform-provider-rawtree/internal/resources/integrations"
 	"github.com/rawtreedb/terraform-provider-rawtree/internal/util"
 )
 
 var (
-	_ resource.Resource                = &CloudfrontIngestionResource{}
-	_ resource.ResourceWithImportState = &CloudfrontIngestionResource{}
-	_ resource.ResourceWithModifyPlan  = &CloudfrontIngestionResource{}
+	_ resource.Resource                = &WafIngestionResource{}
+	_ resource.ResourceWithImportState = &WafIngestionResource{}
+	_ resource.ResourceWithModifyPlan  = &WafIngestionResource{}
 )
 
-type CloudfrontIngestionResource struct {
+type WafIngestionResource struct {
 	client *client.RawtreeClient
 }
 
 func NewResource() resource.Resource {
-	return &CloudfrontIngestionResource{}
+	return &WafIngestionResource{}
 }
 
-func (r *CloudfrontIngestionResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_cloudfront_ingestion"
+func (r *WafIngestionResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_waf_ingestion"
 }
 
-func (r *CloudfrontIngestionResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *WafIngestionResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
 }
 
-func (r *CloudfrontIngestionResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+func (r *WafIngestionResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	// Skip on create (no prior state) or destroy (no plan).
 	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
 		return
 	}
@@ -55,12 +55,16 @@ func (r *CloudfrontIngestionResource) ModifyPlan(ctx context.Context, req resour
 		return
 	}
 
-	var plan CloudfrontIngestionModel
+	var plan WafIngestionModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
+	// Override the computed api_url, endpoint_url, and api_key_hash with values
+	// derived from the current provider config. State reflects the actual AWS
+	// Firehose endpoint (set during Read), so if the provider config has changed,
+	// Terraform will see a diff and trigger an Update.
 	org := r.client.Organization
 	if !plan.Organization.IsNull() && !plan.Organization.IsUnknown() && plan.Organization.ValueString() != "" {
 		org = plan.Organization.ValueString()
@@ -71,37 +75,20 @@ func (r *CloudfrontIngestionResource) ModifyPlan(ctx context.Context, req resour
 	}
 	table := plan.Table.ValueString()
 
-	fields, fieldDiags := extractFieldsFromList(ctx, plan.Fields)
-	resp.Diagnostics.Append(fieldDiags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	plan.APIURL = types.StringValue(r.client.APIURL)
-	plan.EndpointURL = types.StringValue(buildEndpointURL(r.client.APIURL, org, project, table, fields))
+	plan.EndpointURL = types.StringValue(fmt.Sprintf("%s/v1/%s/%s/tables/%s?transform=firehose",
+		r.client.APIURL, org, project, table))
 	plan.APIKeyHash = types.StringValue(util.HashString(r.client.APIKey))
 
 	resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
 }
 
-func (r *CloudfrontIngestionResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
-	if req.ProviderData == nil {
-		return
-	}
-
-	c, ok := req.ProviderData.(*client.RawtreeClient)
-	if !ok {
-		resp.Diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *client.RawtreeClient, got: %T", req.ProviderData),
-		)
-		return
-	}
-	r.client = c
+func (r *WafIngestionResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	r.client = integrations.Configure(req, resp)
 }
 
-func (r *CloudfrontIngestionResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var plan CloudfrontIngestionModel
+func (r *WafIngestionResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var plan WafIngestionModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -109,17 +96,10 @@ func (r *CloudfrontIngestionResource) Create(ctx context.Context, req resource.C
 
 	region := plan.Region.ValueString()
 	table := plan.Table.ValueString()
-	distributionID := plan.DistributionID.ValueString()
-	samplingRate := plan.SamplingRate.ValueInt64()
+	webACLARN := plan.WebACLARN.ValueString()
 	bufferingSizeMB := int32(plan.BufferingSize.ValueInt64())
 	bufferingSeconds := int32(plan.BufferingInterval.ValueInt64())
 	s3BackupMode := plan.S3BackupMode.ValueString()
-
-	fields, fieldDiags := extractFieldsFromList(ctx, plan.Fields)
-	resp.Diagnostics.Append(fieldDiags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
 
 	org := r.client.Organization
 	if !plan.Organization.IsNull() && !plan.Organization.IsUnknown() && plan.Organization.ValueString() != "" {
@@ -141,77 +121,43 @@ func (r *CloudfrontIngestionResource) Create(ctx context.Context, req resource.C
 	iamClient := iam.NewFromConfig(awsCfg)
 	s3Client := s3.NewFromConfig(awsCfg)
 	firehoseClient := firehose.NewFromConfig(awsCfg)
-	kinesisClient := kinesis.NewFromConfig(awsCfg)
-	cfClient := cloudfront.NewFromConfig(awsCfg)
 	logsClient := cloudwatchlogs.NewFromConfig(awsCfg)
+	wafClient := wafv2.NewFromConfig(awsCfg)
 
-	state := awsResourceState{Region: region, DistributionID: distributionID}
+	state := awsResourceState{Region: region, WebACLARN: webACLARN}
 
 	// Step 1: Create S3 backup bucket.
-	bucketName := fmt.Sprintf("rawtree-cf-backup-%s", resourceName)
-	if err := util.CreateBackupBucket(ctx, s3Client, bucketName, region, "cloudfront-firehose-backup"); err != nil {
+	bucketName := fmt.Sprintf("rawtree-waf-backup-%s", resourceName)
+	if err := createBackupBucket(ctx, s3Client, bucketName, region); err != nil {
 		resp.Diagnostics.AddError("Failed to create S3 backup bucket", err.Error())
 		return
 	}
 	state.BackupBucketName = bucketName
 
-	// Step 2: Create Kinesis Data Stream.
-	kinesisStreamName := fmt.Sprintf("rawtree-cf-%s", resourceName)
-	if err := createKinesisStream(ctx, kinesisClient, kinesisStreamName); err != nil {
-		resp.Diagnostics.AddError("Failed to create Kinesis Data Stream", err.Error())
-		return
-	}
-	state.KinesisStreamName = kinesisStreamName
-
-	tflog.Info(ctx, "Waiting for Kinesis Data Stream to become ACTIVE", map[string]interface{}{
-		"stream_name": kinesisStreamName,
-	})
-
-	// Step 3: Wait for Kinesis ACTIVE and get ARN.
-	kinesisStreamARN, err := waitForKinesisActive(ctx, kinesisClient, kinesisStreamName, 3*time.Minute)
-	if err != nil {
-		resp.Diagnostics.AddError("Kinesis Data Stream did not become active", err.Error())
-		return
-	}
-	state.KinesisStreamARN = kinesisStreamARN
-
-	// Step 4: Create IAM role for CloudFront -> Kinesis.
-	cfRoleARN, cfRoleName, cfPolicyARN, err := createCloudFrontRole(ctx, iamClient, resourceName, kinesisStreamARN)
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to create CloudFront IAM role", err.Error())
-		return
-	}
-	state.CloudFrontRoleARN = cfRoleARN
-	state.CloudFrontRoleName = cfRoleName
-	state.CloudFrontPolicyARN = cfPolicyARN
-
-	// Step 5: Create IAM role for Firehose -> Kinesis + S3 + CloudWatch.
-	fhRoleARN, fhRoleName, fhPolicyARN, err := createFirehoseRole(ctx, iamClient, resourceName, kinesisStreamARN, bucketName, region)
+	// Step 2: Create IAM role for Firehose.
+	roleARN, roleName, policyARN, err := createFirehoseRole(ctx, iamClient, resourceName, bucketName, region)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to create Firehose IAM role", err.Error())
 		return
 	}
-	state.FirehoseRoleARN = fhRoleARN
-	state.FirehoseRoleName = fhRoleName
-	state.FirehosePolicyARN = fhPolicyARN
+	state.IAMRoleARN = roleARN
+	state.IAMRoleName = roleName
+	state.IAMPolicyARN = policyARN
 
-	// Step 6 (IAM propagation wait is handled inside createFirehoseRole).
-
-	// Step 7: Create Firehose delivery stream.
-	firehoseName := fmt.Sprintf("rawtree-cf-%s", resourceName)
-	endpointURL := buildEndpointURL(r.client.APIURL, org, project, table, fields)
+	// Step 3: Create Firehose delivery stream.
+	firehoseName := fmt.Sprintf("aws-waf-logs-rawtree-%s", resourceName)
+	endpointURL := fmt.Sprintf("%s/v1/%s/%s/tables/%s?transform=firehose",
+		r.client.APIURL, org, project, table)
 
 	cfg := firehoseConfig{
 		Name:             firehoseName,
 		EndpointURL:      endpointURL,
 		AccessKey:        r.client.APIKey,
-		FirehoseRoleARN:  fhRoleARN,
-		KinesisStreamARN: kinesisStreamARN,
+		RoleARN:          roleARN,
 		BucketARN:        fmt.Sprintf("arn:aws:s3:::%s", bucketName),
 		BufferingSizeMB:  bufferingSizeMB,
 		BufferingSeconds: bufferingSeconds,
 		S3BackupMode:     s3BackupMode,
-		Region:           region,
 	}
 
 	firehoseARN, err := createDeliveryStream(ctx, firehoseClient, logsClient, cfg)
@@ -226,25 +172,14 @@ func (r *CloudfrontIngestionResource) Create(ctx context.Context, req resource.C
 		"firehose_name": firehoseName,
 	})
 
-	// Step 8: Wait for Firehose ACTIVE.
-	if err := util.WaitForFirehoseActive(ctx, firehoseClient, firehoseName, 3*time.Minute); err != nil {
+	if err := waitForFirehoseActive(ctx, firehoseClient, firehoseName, 3*time.Minute); err != nil {
 		resp.Diagnostics.AddError("Firehose did not become active", err.Error())
 		return
 	}
 
-	// Step 9: Create CloudFront real-time log config.
-	logConfigName := fmt.Sprintf("rawtree-cf-%s", resourceName)
-	logConfigARN, err := createRealtimeLogConfig(ctx, cfClient, logConfigName, fields, samplingRate, kinesisStreamARN, cfRoleARN)
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to create CloudFront real-time log config", err.Error())
-		return
-	}
-	state.RealtimeLogConfigARN = logConfigARN
-	state.RealtimeLogConfigName = logConfigName
-
-	// Step 10: Attach to distribution.
-	if err := attachToDistribution(ctx, cfClient, distributionID, logConfigARN); err != nil {
-		resp.Diagnostics.AddError("Failed to attach real-time log config to distribution", err.Error())
+	// Step 4: Put WAF logging configuration.
+	if err := putLoggingConfiguration(ctx, wafClient, webACLARN, firehoseARN); err != nil {
+		resp.Diagnostics.AddError("Failed to put WAF logging configuration", err.Error())
 		return
 	}
 
@@ -255,12 +190,10 @@ func (r *CloudfrontIngestionResource) Create(ctx context.Context, req resource.C
 	plan.APIKeyHash = types.StringValue(util.HashString(r.client.APIKey))
 	plan.Organization = types.StringValue(org)
 	plan.Project = types.StringValue(project)
-	plan.KinesisStreamARN = types.StringValue(kinesisStreamARN)
-	plan.KinesisStreamName = types.StringValue(kinesisStreamName)
 	plan.FirehoseARN = types.StringValue(firehoseARN)
 	plan.FirehoseName = types.StringValue(firehoseName)
 	plan.BackupBucketName = types.StringValue(bucketName)
-	plan.RealtimeLogConfigARN = types.StringValue(logConfigARN)
+	plan.WafLoggingConfigurationID = types.StringValue(webACLARN)
 
 	stateJSON, _ := json.Marshal(state)
 	resp.Private.SetKey(ctx, "aws_resources", stateJSON)
@@ -268,8 +201,8 @@ func (r *CloudfrontIngestionResource) Create(ctx context.Context, req resource.C
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
-func (r *CloudfrontIngestionResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data CloudfrontIngestionModel
+func (r *WafIngestionResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data WafIngestionModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -300,6 +233,7 @@ func (r *CloudfrontIngestionResource) Read(ctx context.Context, req resource.Rea
 
 	firehoseClient := firehose.NewFromConfig(awsCfg)
 
+	// Verify Firehose exists and read its current configuration.
 	descOut, err := firehoseClient.DescribeDeliveryStream(ctx, &firehose.DescribeDeliveryStreamInput{
 		DeliveryStreamName: &state.FirehoseName,
 	})
@@ -314,6 +248,8 @@ func (r *CloudfrontIngestionResource) Read(ctx context.Context, req resource.Rea
 		return
 	}
 
+	// Read actual endpoint URL from the Firehose destination so Terraform can
+	// detect drift (e.g., provider api_url or org/project changed).
 	actualEndpointURL := ""
 	actualAPIURL := r.client.APIURL
 	if dests := descOut.DeliveryStreamDescription.Destinations; len(dests) > 0 {
@@ -327,6 +263,9 @@ func (r *CloudfrontIngestionResource) Read(ctx context.Context, req resource.Rea
 
 	data.APIURL = types.StringValue(actualAPIURL)
 	data.EndpointURL = types.StringValue(actualEndpointURL)
+	// Don't overwrite api_key_hash here -- keep the value from prior state so
+	// ModifyPlan (which sets it to the current provider key) can detect changes.
+	// AWS does not expose the access key in DescribeDeliveryStream.
 	if data.Organization.IsNull() || data.Organization.ValueString() == "" {
 		data.Organization = types.StringValue(r.client.Organization)
 	}
@@ -338,8 +277,8 @@ func (r *CloudfrontIngestionResource) Read(ctx context.Context, req resource.Rea
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *CloudfrontIngestionResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan CloudfrontIngestionModel
+func (r *WafIngestionResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan WafIngestionModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -367,12 +306,8 @@ func (r *CloudfrontIngestionResource) Update(ctx context.Context, req resource.U
 	}
 
 	table := plan.Table.ValueString()
-	fields, fieldDiags := extractFieldsFromList(ctx, plan.Fields)
-	resp.Diagnostics.Append(fieldDiags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	endpointURL := buildEndpointURL(r.client.APIURL, org, project, table, fields)
+	endpointURL := fmt.Sprintf("%s/v1/%s/%s/tables/%s?transform=firehose",
+		r.client.APIURL, org, project, table)
 
 	awsCfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(state.Region))
 	if err != nil {
@@ -386,8 +321,7 @@ func (r *CloudfrontIngestionResource) Update(ctx context.Context, req resource.U
 		Name:             state.FirehoseName,
 		EndpointURL:      endpointURL,
 		AccessKey:        r.client.APIKey,
-		FirehoseRoleARN:  state.FirehoseRoleARN,
-		KinesisStreamARN: state.KinesisStreamARN,
+		RoleARN:          state.IAMRoleARN,
 		BucketARN:        fmt.Sprintf("arn:aws:s3:::%s", state.BackupBucketName),
 		BufferingSizeMB:  int32(plan.BufferingSize.ValueInt64()),
 		BufferingSeconds: int32(plan.BufferingInterval.ValueInt64()),
@@ -396,13 +330,6 @@ func (r *CloudfrontIngestionResource) Update(ctx context.Context, req resource.U
 
 	if err := updateDeliveryStream(ctx, firehoseClient, state.FirehoseName, cfg); err != nil {
 		resp.Diagnostics.AddError("Failed to update Firehose delivery stream", err.Error())
-		return
-	}
-
-	// Update real-time log config if sampling rate or fields changed.
-	cfClient := cloudfront.NewFromConfig(awsCfg)
-	if err := updateRealtimeLogConfig(ctx, cfClient, state.RealtimeLogConfigARN, fields, plan.SamplingRate.ValueInt64(), state.KinesisStreamARN, state.CloudFrontRoleARN); err != nil {
-		resp.Diagnostics.AddError("Failed to update real-time log config", err.Error())
 		return
 	}
 
@@ -416,8 +343,8 @@ func (r *CloudfrontIngestionResource) Update(ctx context.Context, req resource.U
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
-func (r *CloudfrontIngestionResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data CloudfrontIngestionModel
+func (r *WafIngestionResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data WafIngestionModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -433,7 +360,7 @@ func (r *CloudfrontIngestionResource) Delete(ctx context.Context, req resource.D
 		resp.Diagnostics.AddError(
 			"Missing Internal State",
 			"Cannot destroy because private AWS resource state is missing. "+
-				"AWS resources (Firehose, Kinesis, CloudFront log config, IAM roles, etc.) may still exist. "+
+				"AWS resources (Firehose, WAF logging config, S3 bucket, IAM roles, etc.) may still exist. "+
 				"Remove them manually, then use `terraform state rm` to drop this resource from state.",
 		)
 		return
@@ -454,94 +381,53 @@ func (r *CloudfrontIngestionResource) Delete(ctx context.Context, req resource.D
 	iamClient := iam.NewFromConfig(awsCfg)
 	s3Client := s3.NewFromConfig(awsCfg)
 	firehoseClient := firehose.NewFromConfig(awsCfg)
-	kinesisClient := kinesis.NewFromConfig(awsCfg)
-	cfClient := cloudfront.NewFromConfig(awsCfg)
 	logsClient := cloudwatchlogs.NewFromConfig(awsCfg)
+	wafClient := wafv2.NewFromConfig(awsCfg)
 
-	tflog.Info(ctx, "Deleting CloudFront ingestion resource", map[string]interface{}{
-		"firehose":        state.FirehoseName,
-		"kinesis_stream":  state.KinesisStreamName,
-		"distribution_id": state.DistributionID,
+	tflog.Info(ctx, "Deleting WAF ingestion resource", map[string]interface{}{
+		"firehose": state.FirehoseName,
+		"web_acl":  state.WebACLARN,
 	})
 
-	// 1. Detach from distribution.
-	if err := detachFromDistribution(ctx, cfClient, state.DistributionID, state.RealtimeLogConfigARN); err != nil {
-		resp.Diagnostics.AddWarning("Failed to detach real-time log config from distribution", err.Error())
+	// Delete in reverse order.
+
+	// 1. Delete WAF logging configuration.
+	if err := deleteLoggingConfiguration(ctx, wafClient, state.WebACLARN); err != nil {
+		resp.Diagnostics.AddWarning("Failed to delete WAF logging configuration", err.Error())
 	}
 
-	// 2. Delete real-time log config (retry in case distribution detach is still propagating).
-	if state.RealtimeLogConfigARN != "" {
-		if err := deleteRealtimeLogConfigWithRetry(ctx, cfClient, state.RealtimeLogConfigARN, 3*time.Minute); err != nil {
-			resp.Diagnostics.AddWarning("Failed to delete CloudFront real-time log config", err.Error())
-		}
-	}
-
-	// 3. Delete Firehose delivery stream.
-	if err := util.DeleteDeliveryStream(ctx, firehoseClient, state.FirehoseName); err != nil {
+	// 2. Delete Firehose delivery stream.
+	if err := deleteDeliveryStream(ctx, firehoseClient, state.FirehoseName); err != nil {
 		resp.Diagnostics.AddWarning("Failed to delete Firehose delivery stream", err.Error())
 	} else {
-		if err := util.WaitForFirehoseDeleted(ctx, firehoseClient, state.FirehoseName, 5*time.Minute); err != nil {
+		if err := waitForFirehoseDeleted(ctx, firehoseClient, state.FirehoseName, 5*time.Minute); err != nil {
 			resp.Diagnostics.AddWarning("Firehose deletion timeout", err.Error())
 		}
 	}
 
-	// 4. Delete Kinesis Data Stream.
-	if err := deleteKinesisStream(ctx, kinesisClient, state.KinesisStreamName); err != nil {
-		resp.Diagnostics.AddWarning("Failed to delete Kinesis Data Stream", err.Error())
-	}
-
-	// 5. Delete IAM roles.
-	if err := util.DeleteRole(ctx, iamClient, state.FirehoseRoleName, state.FirehosePolicyARN, ""); err != nil {
+	// 3. Delete IAM role.
+	if err := util.DeleteRole(ctx, iamClient, state.IAMRoleName, state.IAMPolicyARN, ""); err != nil {
 		resp.Diagnostics.AddWarning("Failed to delete Firehose IAM role", err.Error())
 	}
-	if err := util.DeleteRole(ctx, iamClient, state.CloudFrontRoleName, state.CloudFrontPolicyARN, ""); err != nil {
-		resp.Diagnostics.AddWarning("Failed to delete CloudFront IAM role", err.Error())
-	}
 
-	// 6. Delete S3 backup bucket.
-	if err := util.DeleteBackupBucket(ctx, s3Client, state.BackupBucketName); err != nil {
+	// 4. Delete S3 backup bucket.
+	if err := deleteBackupBucket(ctx, s3Client, state.BackupBucketName); err != nil {
 		resp.Diagnostics.AddWarning("Failed to delete S3 backup bucket", err.Error())
 	}
 
-	// 7. Delete CloudWatch log group created during Firehose setup.
+	// 5. Delete CloudWatch log group.
 	logGroup := fmt.Sprintf("/aws/firehose/%s", state.FirehoseName)
 	if _, err := logsClient.DeleteLogGroup(ctx, &cloudwatchlogs.DeleteLogGroupInput{
-		LogGroupName: &logGroup,
+		LogGroupName: aws.String(logGroup),
 	}); err != nil {
 		resp.Diagnostics.AddWarning("Failed to delete CloudWatch log group", err.Error())
 	}
 }
 
-func (r *CloudfrontIngestionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *WafIngestionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resp.Diagnostics.AddError(
 		"Import Not Supported",
-		"The rawtree_cloudfront_ingestion resource does not support import. "+
+		"The rawtree_waf_ingestion resource does not support import. "+
 			"Please create the resource using Terraform.",
 	)
-}
-
-func extractFieldsFromList(ctx context.Context, fieldList types.List) ([]string, diag.Diagnostics) {
-	if fieldList.IsNull() || fieldList.IsUnknown() {
-		return defaultFields, nil
-	}
-	var elems []types.String
-	diags := fieldList.ElementsAs(ctx, &elems, false)
-	if diags.HasError() {
-		return nil, diags
-	}
-	result := make([]string, 0, len(elems))
-	for _, e := range elems {
-		if !e.IsNull() && !e.IsUnknown() {
-			result = append(result, e.ValueString())
-		}
-	}
-	if len(result) == 0 {
-		return defaultFields, diags
-	}
-	return result, diags
-}
-
-func buildEndpointURL(apiURL, org, project, table string, fields []string) string {
-	return fmt.Sprintf("%s/v1/%s/%s/tables/%s?transform=firehose&columns=%s",
-		apiURL, org, project, table, strings.Join(sortFieldsCanonical(fields), ","))
 }

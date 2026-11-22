@@ -17,6 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
 	"github.com/rawtreedb/terraform-provider-rawtree/internal/client"
+	"github.com/rawtreedb/terraform-provider-rawtree/internal/resources/integrations"
 	"github.com/rawtreedb/terraform-provider-rawtree/internal/util"
 )
 
@@ -42,19 +43,7 @@ func (r *S3IngestionResource) Schema(_ context.Context, _ resource.SchemaRequest
 }
 
 func (r *S3IngestionResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
-	if req.ProviderData == nil {
-		return
-	}
-
-	client, ok := req.ProviderData.(*client.RawtreeClient)
-	if !ok {
-		resp.Diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *client.RawtreeClient, got: %T", req.ProviderData),
-		)
-		return
-	}
-	r.client = client
+	r.client = integrations.Configure(req, resp)
 }
 
 func (r *S3IngestionResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

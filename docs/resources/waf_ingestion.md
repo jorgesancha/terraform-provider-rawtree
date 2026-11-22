@@ -1,6 +1,6 @@
 ---
 page_title: "rawtree_waf_ingestion Resource - Rawtree"
-subcategory: ""
+subcategory: "Integrations"
 description: |-
   Manages real-time AWS WAF log ingestion into Rawtree via Kinesis Data Firehose.
 ---

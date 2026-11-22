@@ -14,10 +14,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/rawtreedb/terraform-provider-rawtree/internal/client"
-	"github.com/rawtreedb/terraform-provider-rawtree/internal/resources/cloudfront_ingestion"
-	"github.com/rawtreedb/terraform-provider-rawtree/internal/resources/s3_ingestion"
-	"github.com/rawtreedb/terraform-provider-rawtree/internal/resources/supabase_cdc_ingestion"
-	"github.com/rawtreedb/terraform-provider-rawtree/internal/resources/waf_ingestion"
+	"github.com/rawtreedb/terraform-provider-rawtree/internal/resources/integrations/cloudfront_ingestion"
+	"github.com/rawtreedb/terraform-provider-rawtree/internal/resources/integrations/s3_ingestion"
+	"github.com/rawtreedb/terraform-provider-rawtree/internal/resources/integrations/supabase_cdc_ingestion"
+	"github.com/rawtreedb/terraform-provider-rawtree/internal/resources/integrations/waf_ingestion"
+	"github.com/rawtreedb/terraform-provider-rawtree/internal/resources/platform/database"
 )
 
 const (
@@ -32,10 +33,11 @@ type RawtreeProvider struct {
 }
 
 type RawtreeProviderModel struct {
-	APIKey       types.String `tfsdk:"api_key"`
-	APIURL       types.String `tfsdk:"api_url"`
-	Organization types.String `tfsdk:"organization"`
-	Project      types.String `tfsdk:"project"`
+	ManagementToken types.String `tfsdk:"management_token"`
+	APIKey          types.String `tfsdk:"api_key"`
+	APIURL          types.String `tfsdk:"api_url"`
+	Organization    types.String `tfsdk:"organization"`
+	Project         types.String `tfsdk:"project"`
 }
 
 // cliConfig represents the structure of ~/.config/rtree/config.json.
@@ -61,24 +63,29 @@ func (p *RawtreeProvider) Metadata(_ context.Context, _ provider.MetadataRequest
 
 func (p *RawtreeProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "The Rawtree provider enables automated data ingestion into Rawtree from AWS sources (S3, WAF logs, CloudFront real-time logs).",
+		Description: "Manage RawTree resources and external ingestion integrations.",
 		Attributes: map[string]schema.Attribute{
+			"management_token": schema.StringAttribute{
+				Optional:    true,
+				Sensitive:   true,
+				Description: "Bearer credential for native RawTree resources. Can also be set with RAWTREE_MANAGEMENT_TOKEN. Integrations use their own API key.",
+			},
 			"api_key": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
-				Description: "Rawtree API key (rw_...). Can also be set via RAWTREE_API_KEY env var, or auto-detected from rtree CLI config.",
+				Description: "API key for ingestion integrations and a fallback for native resources. Set it with RAWTREE_API_KEY or the RawTree CLI configuration.",
 			},
 			"api_url": schema.StringAttribute{
 				Optional:    true,
-				Description: fmt.Sprintf("Rawtree API URL. Defaults to %s. Can also be set via RAWTREE_URL env var.", defaultAPIURL),
+				Description: fmt.Sprintf("RawTree API URL. Defaults to https://api.rawtree.com for native resources and %s for integrations. Can also be set via RAWTREE_URL.", defaultAPIURL),
 			},
 			"organization": schema.StringAttribute{
 				Optional:    true,
-				Description: "Rawtree organization name. Can also be set via RAWTREE_ORG env var.",
+				Description: "Organization name for integrations. Can also be set with RAWTREE_ORG.",
 			},
 			"project": schema.StringAttribute{
 				Optional:    true,
-				Description: "Rawtree project name. Can also be set via RAWTREE_PROJECT env var.",
+				Description: "Project name for integrations. Can also be set with RAWTREE_PROJECT.",
 			},
 		},
 	}
@@ -91,49 +98,27 @@ func (p *RawtreeProvider) Configure(ctx context.Context, req provider.ConfigureR
 		return
 	}
 
-	// Load CLI config as fallback.
 	cli := loadCLIConfig()
 
-	// Resolve API key: provider → env → CLI config
 	apiKey := resolveString(config.APIKey, "RAWTREE_API_KEY", cli.Token)
-	if apiKey == "" {
-		resp.Diagnostics.AddError(
-			"Missing API Key",
-			"A Rawtree API key must be provided via the provider 'api_key' attribute, "+
-				"the RAWTREE_API_KEY environment variable, or by logging in with the rtree CLI.",
-		)
-		return
-	}
 
-	// Resolve API URL: provider → env → CLI config → default
 	apiURL := resolveString(config.APIURL, "RAWTREE_URL", cli.URL)
-	if apiURL == "" {
-		apiURL = defaultAPIURL
-	}
-
-	// Resolve organization: provider → env → CLI config
+	managementToken := resolveString(config.ManagementToken, "RAWTREE_MANAGEMENT_TOKEN", apiKey)
 	org := resolveString(config.Organization, "RAWTREE_ORG", cli.DefaultOrganization)
-	if org == "" {
-		resp.Diagnostics.AddError(
-			"Missing Organization",
-			"A Rawtree organization must be provided via the provider 'organization' attribute, "+
-				"the RAWTREE_ORG environment variable, or by setting a default in the rtree CLI.",
-		)
-		return
-	}
-
-	// Resolve project: provider → env → CLI config
 	project := resolveString(config.Project, "RAWTREE_PROJECT", cli.DefaultProject)
-	if project == "" {
-		resp.Diagnostics.AddError(
-			"Missing Project",
-			"A Rawtree project must be provided via the provider 'project' attribute, "+
-				"the RAWTREE_PROJECT environment variable, or by setting a default in the rtree CLI.",
-		)
+	platformURL, integrationURL := apiURL, apiURL
+	if apiURL == "" {
+		platformURL = "https://api.rawtree.com"
+		integrationURL = defaultAPIURL
+	}
+	if managementToken == "" {
+		resp.Diagnostics.AddError("Missing RawTree credential", "Set management_token or RAWTREE_MANAGEMENT_TOKEN for native resources, or configure an API key.")
 		return
 	}
-
-	c := client.New(apiKey, apiURL, org, project)
+	c := &client.Clients{
+		Platform:     client.NewPlatformClient(platformURL, managementToken),
+		Integrations: client.New(apiKey, integrationURL, org, project),
+	}
 
 	resp.DataSourceData = c
 	resp.ResourceData = c
@@ -141,6 +126,7 @@ func (p *RawtreeProvider) Configure(ctx context.Context, req provider.ConfigureR
 
 func (p *RawtreeProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
+		database.NewResource,
 		cloudfront_ingestion.NewResource,
 		s3_ingestion.NewResource,
 		supabase_cdc_ingestion.NewResource,

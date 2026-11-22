@@ -1,6 +1,6 @@
 ---
 page_title: "rawtree_supabase_cdc_ingestion Resource - Rawtree"
-subcategory: ""
+subcategory: "Integrations"
 description: |-
   Manages Supabase Postgres CDC ingestion into Rawtree using ECS Fargate.
 ---

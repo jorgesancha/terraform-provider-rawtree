@@ -17,6 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
 	"github.com/rawtreedb/terraform-provider-rawtree/internal/client"
+	"github.com/rawtreedb/terraform-provider-rawtree/internal/resources/integrations"
 	"github.com/rawtreedb/terraform-provider-rawtree/internal/util"
 )
 
@@ -43,19 +44,7 @@ func (r *SupabaseCDCIngestionResource) Schema(_ context.Context, _ resource.Sche
 }
 
 func (r *SupabaseCDCIngestionResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
-	if req.ProviderData == nil {
-		return
-	}
-
-	c, ok := req.ProviderData.(*client.RawtreeClient)
-	if !ok {
-		resp.Diagnostics.AddError(
-			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *client.RawtreeClient, got: %T", req.ProviderData),
-		)
-		return
-	}
-	r.client = c
+	r.client = integrations.Configure(req, resp)
 }
 
 func (r *SupabaseCDCIngestionResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {

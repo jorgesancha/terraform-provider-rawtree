@@ -1,8 +1,12 @@
-# Terraform Provider for Rawtree
+# Terraform Provider for RawTree
 
-The Rawtree Terraform provider enables automated data ingestion from AWS sources into [Rawtree](https://rawtree.dev), a schemaless analytical database.
+Use Terraform to manage RawTree databases and external ingestion pipelines.
 
-## Resources
+## RawTree
+
+[`rawtree_database`](docs/resources/database.md) manages a named database in an existing cluster.
+
+## Integrations
 
 | Resource | Description | Docs |
 |----------|-------------|------|
@@ -44,8 +48,8 @@ The Rawtree Terraform provider enables automated data ingestion from AWS sources
 ## Requirements
 
 - [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.0
-- [Go](https://golang.org/doc/install) >= 1.22 (to build the provider)
-- AWS credentials with the [required permissions](#required-aws-permissions)
+- [Go](https://golang.org/doc/install) >= 1.26.1 (to build the provider)
+- For ingestion integrations, AWS credentials with the [required permissions](#required-aws-permissions)
 - A [Rawtree](https://rawtree.dev) account with an API key
 
 ## Installation
@@ -63,7 +67,11 @@ terraform {
 
 ## Authentication
 
-The provider resolves credentials in this order:
+For native resources, set `RAWTREE_MANAGEMENT_TOKEN` or the sensitive `management_token` provider setting.
+This credential stays in the provider. Native resources can also use the existing API key when it has database administration access.
+Specify the organization and cluster on the database resource. Its [example](examples/resources/database/main.tf) requires no AWS credentials.
+
+For ingestion integrations, the provider resolves settings in this order:
 
 1. Provider configuration block
 2. Environment variables (`RAWTREE_API_KEY`, `RAWTREE_URL`, `RAWTREE_ORG`, `RAWTREE_PROJECT`)
@@ -265,9 +273,9 @@ go test -v ./...
 
 # Acceptance tests (requires AWS + Rawtree credentials)
 # See test/README.md for setup instructions
-TF_ACC=1 go test -v -timeout 30m ./internal/resources/s3_ingestion/
-TF_ACC=1 go test -v -timeout 30m ./internal/resources/waf_ingestion/
-TF_ACC=1 go test -v -timeout 30m ./internal/resources/cloudfront_ingestion/
+TF_ACC=1 go test -v -timeout 30m ./internal/resources/integrations/s3_ingestion/
+TF_ACC=1 go test -v -timeout 30m ./internal/resources/integrations/waf_ingestion/
+TF_ACC=1 go test -v -timeout 30m ./internal/resources/integrations/cloudfront_ingestion/
 ```
 
 ### Using a local build

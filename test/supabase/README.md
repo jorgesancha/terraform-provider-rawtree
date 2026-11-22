@@ -20,7 +20,7 @@ The test assumes:
 | Rawtree destination table | `public_superstore__sales__data` (created automatically by the worker) |
 
 If you deviate from any of these names, edit the constants at the top of
-[resource_acc_test.go](../../internal/resources/supabase_cdc_ingestion/resource_acc_test.go).
+[resource_acc_test.go](../../internal/resources/integrations/supabase_cdc_ingestion/resource_acc_test.go).
 
 ## 1. Create a Supabase project
 
@@ -142,7 +142,7 @@ export RAWTREE_E2E_TIMEOUT=15m
 
 TF_ACC=1 go test -v -timeout 30m \
   -run TestAccSupabaseCDCIngestion_endToEndData \
-  ./internal/resources/supabase_cdc_ingestion/
+  ./internal/resources/integrations/supabase_cdc_ingestion/
 ```
 
 What the test does, in order:

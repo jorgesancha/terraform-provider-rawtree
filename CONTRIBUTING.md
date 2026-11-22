@@ -63,18 +63,12 @@ internal/
 ├── provider/                    # Provider configuration and setup
 ├── util/                        # Shared AWS helpers (IAM, S3, naming, tags, …)
 └── resources/
-    ├── s3_ingestion/            # S3 batch + streaming ingestion
-    │   ├── resource.go          # CRUD lifecycle
-    │   ├── schema.go            # Resource schema
-    │   ├── models.go            # State models
-    │   ├── iam.go               # IAM role management
-    │   ├── glue.go              # Glue job management
-    │   ├── lambda.go            # Lambda function management
-    │   ├── eventbridge.go       # EventBridge setup
-    │   └── scripts/             # Embedded Python scripts (Glue, Lambda)
-    ├── waf_ingestion/           # WAF logs via Kinesis Firehose
-    ├── cloudfront_ingestion/    # CloudFront real-time logs via Kinesis + Firehose
-    └── supabase_cdc_ingestion/  # Supabase Postgres CDC via ECS Fargate
+    ├── platform/database/       # RawTree database lifecycle
+    └── integrations/            # AWS-backed ingestion pipelines
+        ├── s3_ingestion/
+        ├── waf_ingestion/
+        ├── cloudfront_ingestion/
+        └── supabase_cdc_ingestion/
 ```
 
 Each resource follows the same pattern: `resource.go` (CRUD), `schema.go` (schema definition), `models.go` (state types), plus AWS service-specific files.
