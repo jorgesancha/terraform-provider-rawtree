@@ -299,7 +299,7 @@ func testAccCheckRawtreeHasData(tableName string, expectedRows int) resource.Tes
 		if resp.StatusCode != 200 {
 			var buf [1024]byte
 			n, _ := resp.Body.Read(buf[:])
-			return fmt.Errorf("Tinybird RawTree query returned %d: %s", resp.StatusCode, string(buf[:n]))
+			return fmt.Errorf("query to Tinybird RawTree returned HTTP %d: %s", resp.StatusCode, string(buf[:n]))
 		}
 
 		var result struct {

@@ -35,7 +35,7 @@ func verifyWorkerDestination(ctx context.Context, c *client.RawtreeClient, cfg r
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Tinybird RawTree returned HTTP %d when checking the stock worker's default database. Use an ingestion key that can query its default database", resp.StatusCode)
+		return fmt.Errorf("received HTTP %d from Tinybird RawTree when checking the stock worker's default database. Use an ingestion key that can query its default database", resp.StatusCode)
 	}
 	var result struct {
 		Data []struct {
@@ -46,7 +46,7 @@ func verifyWorkerDestination(ctx context.Context, c *client.RawtreeClient, cfg r
 		return err
 	}
 	if len(result.Data) != 1 || result.Data[0].Database == "" {
-		return fmt.Errorf("Tinybird RawTree did not return the ingestion key's default database")
+		return fmt.Errorf("no default database for the ingestion key in the Tinybird RawTree response")
 	}
 	if result.Data[0].Database != cfg.Database {
 		return fmt.Errorf("the stock worker's key selects %q, but this integration targets %q. Use a key issued with %q as its default database", result.Data[0].Database, cfg.Database, cfg.Database)
