@@ -43,7 +43,7 @@ go build -o . .
 # 2. Set Rawtree credentials (provider reads these from env)
 export RAWTREE_API_KEY="rw_..."
 export RAWTREE_ORG="your-org"
-export RAWTREE_PROJECT="your-project"
+export RAWTREE_DATABASE="your_database"
 
 # 3. Bootstrap the lab (downloads aws + random providers)
 cd test/lab

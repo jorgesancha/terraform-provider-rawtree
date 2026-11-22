@@ -1,6 +1,7 @@
 package s3_ingestion
 
 import (
+	"github.com/rawtreedb/terraform-provider-rawtree/internal/resources/integrations"
 	"testing"
 
 	"github.com/rawtreedb/terraform-provider-rawtree/internal/util"
@@ -35,7 +36,7 @@ func TestBuildIngestEndpoint(t *testing.T) {
 			org:     "myorg",
 			project: "myproject",
 			table:   "events",
-			want:    "https://api.rawtree.com/v1/myorg/myproject/tables/events",
+			want:    "https://api.rawtree.com/v1/tables/events?database=myproject",
 		},
 		{
 			name:    "regional URL",
@@ -43,14 +44,14 @@ func TestBuildIngestEndpoint(t *testing.T) {
 			org:     "acme",
 			project: "prod",
 			table:   "logs",
-			want:    "https://api.us-east-1.aws.rawtree.com/v1/acme/prod/tables/logs",
+			want:    "https://api.us-east-1.aws.rawtree.com/v1/tables/logs?database=prod",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := buildIngestEndpoint(tt.apiURL, tt.org, tt.project, tt.table)
+			got := integrations.TableEndpoint(tt.apiURL, tt.project, tt.table, nil)
 			if got != tt.want {
 				t.Errorf("buildIngestEndpoint() = %q, want %q", got, tt.want)
 			}

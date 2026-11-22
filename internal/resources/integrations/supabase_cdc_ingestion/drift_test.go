@@ -23,8 +23,9 @@ func TestModifyPlanProviderDrift(t *testing.T) {
 	planVals := testSupabaseStateValues("https://old-api.example.com", util.HashString("old-key"), "", "")
 
 	req := resource.ModifyPlanRequest{
-		State: buildSupabaseTFState(stateVals),
-		Plan:  buildSupabaseTFPlan(planVals),
+		State:  buildSupabaseTFState(stateVals),
+		Config: tfsdk.Config{Schema: resourceSchema(), Raw: tftypes.NewValue(testSupabaseSchemaType(), planVals)},
+		Plan:   buildSupabaseTFPlan(planVals),
 	}
 	resp := &resource.ModifyPlanResponse{
 		Plan: buildSupabaseTFPlan(planVals),
@@ -91,6 +92,7 @@ func testSupabaseSchemaType() tftypes.Object {
 			"worker_command":           tftypes.List{ElementType: tftypes.String},
 			"environment":              tftypes.Map{ElementType: tftypes.String},
 			"organization":             tftypes.String,
+			"database":                 tftypes.String,
 			"project":                  tftypes.String,
 			"api_url":                  tftypes.String,
 			"api_key_hash":             tftypes.String,
@@ -129,8 +131,9 @@ func testSupabaseStateValues(apiURL, apiKeyHash, org, project string) map[string
 		"initialization_command":   tftypes.NewValue(listType, []tftypes.Value{tftypes.NewValue(tftypes.String, "init")}),
 		"worker_command":           tftypes.NewValue(listType, []tftypes.Value{tftypes.NewValue(tftypes.String, "run")}),
 		"environment":              tftypes.NewValue(mapType, nil),
-		"organization":             tftypes.NewValue(tftypes.String, org),
-		"project":                  tftypes.NewValue(tftypes.String, project),
+		"organization":             nullableScope(org),
+		"database":                 tftypes.NewValue(tftypes.String, nil),
+		"project":                  nullableScope(project),
 		"api_url":                  tftypes.NewValue(tftypes.String, apiURL),
 		"api_key_hash":             tftypes.NewValue(tftypes.String, apiKeyHash),
 		"cluster_arn":              tftypes.NewValue(tftypes.String, "arn:aws:ecs:us-east-1:123456789012:cluster/rawtree"),
@@ -140,4 +143,11 @@ func testSupabaseStateValues(apiURL, apiKeyHash, org, project string) map[string
 		"execution_role_arn":       tftypes.NewValue(tftypes.String, "arn:aws:iam::123456789012:role/rawtree-ecs"),
 		"config_secret_arn":        tftypes.NewValue(tftypes.String, "arn:aws:secretsmanager:us-east-1:123456789012:secret:rawtree-config"),
 	}
+}
+
+func nullableScope(value string) tftypes.Value {
+	if value == "" {
+		return tftypes.NewValue(tftypes.String, nil)
+	}
+	return tftypes.NewValue(tftypes.String, value)
 }

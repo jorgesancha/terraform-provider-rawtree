@@ -45,7 +45,7 @@ resource "rawtree_cloudfront_ingestion" "logs" {
 }
 ```
 
-### With custom buffering and organization/project
+### With custom buffering and organization/database
 
 ```hcl
 resource "rawtree_cloudfront_ingestion" "logs" {
@@ -53,7 +53,7 @@ resource "rawtree_cloudfront_ingestion" "logs" {
   distribution_id = "E1234567890ABC"
   region          = "us-east-1"
   organization    = "my-org"
-  project         = "my-project"
+  database         = "my_database"
 
   buffering_size     = 10
   buffering_interval = 120
@@ -77,7 +77,8 @@ resource "rawtree_cloudfront_ingestion" "logs" {
 - `buffering_interval` (Number) - Firehose buffer interval in seconds before delivery. Valid range: 60-900. Default: `300`.
 - `s3_backup_mode` (String) - S3 backup mode. Valid values: `FailedDataOnly`, `AllData`. Default: `FailedDataOnly`.
 - `organization` (String) - The Rawtree organization. Defaults to the provider-level organization.
-- `project` (String) - The Rawtree project. Defaults to the provider-level project.
+- `database` (String) selects the destination RawTree database. Defaults to the provider database.
+- `project` (String, deprecated) is an alias for `database`.
 
 ### Read-Only
 
@@ -106,7 +107,7 @@ resource "rawtree_cloudfront_ingestion" "logs" {
 ## Important Notes
 
 - **Distribution attachment**: The resource modifies the distribution's default cache behavior to attach the real-time log config. If you manage the distribution with `aws_cloudfront_distribution`, add `lifecycle { ignore_changes = [default_cache_behavior[0].realtime_log_config_arn] }` to avoid conflicts.
-- **Resource names**: Names are auto-generated from org, project, and table with a hash suffix. The `{name}` portion is max 40 characters.
+- **Resource names**: Names are auto-generated from org, database, and table with a hash suffix. The `{name}` portion is max 40 characters.
 - **Kinesis stream mode**: The Kinesis Data Stream is created in On-Demand mode (auto-scales, no shard management required).
 - **CloudFront region**: The Kinesis stream and Firehose can be in any region, but `us-east-1` is recommended for lowest latency with CloudFront.
 - **Sampling**: Use `sampling_rate` (1-100) to control what percentage of requests generate log records.

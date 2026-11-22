@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -49,10 +50,7 @@ func (r *CloudfrontIngestionResource) Schema(_ context.Context, _ resource.Schem
 }
 
 func (r *CloudfrontIngestionResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
-		return
-	}
-	if r.client == nil {
+	if req.Plan.Raw.IsNull() || r.client == nil {
 		return
 	}
 
@@ -62,24 +60,34 @@ func (r *CloudfrontIngestionResource) ModifyPlan(ctx context.Context, req resour
 		return
 	}
 
-	org := r.client.Organization
-	if !plan.Organization.IsNull() && !plan.Organization.IsUnknown() && plan.Organization.ValueString() != "" {
-		org = plan.Organization.ValueString()
-	}
-	project := r.client.Project
-	if !plan.Project.IsNull() && !plan.Project.IsUnknown() && plan.Project.ValueString() != "" {
-		project = plan.Project.ValueString()
-	}
-	table := plan.Table.ValueString()
-
-	fields, fieldDiags := extractFieldsFromList(ctx, plan.Fields)
-	resp.Diagnostics.Append(fieldDiags...)
+	var diags diag.Diagnostics
+	plan.Organization, plan.Database, diags = integrations.Destination(ctx, req.Config, r.client)
+	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	plan.Project = plan.Database
+	table := plan.Table.ValueString()
 
 	plan.APIURL = types.StringValue(r.client.APIURL)
-	plan.EndpointURL = types.StringValue(buildEndpointURL(r.client.APIURL, org, project, table, fields))
+	plan.EndpointURL = types.StringUnknown()
+	if !plan.Table.IsUnknown() && !plan.Database.IsUnknown() && !plan.Fields.IsUnknown() {
+		fields, fieldDiags := extractFieldsFromList(ctx, plan.Fields)
+		resp.Diagnostics.Append(fieldDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		known := true
+		for _, field := range plan.Fields.Elements() {
+			if field.IsUnknown() {
+				known = false
+				break
+			}
+		}
+		if known {
+			plan.EndpointURL = types.StringValue(buildEndpointURL(r.client.APIURL, plan.Database.ValueString(), table, fields))
+		}
+	}
 	plan.APIKeyHash = types.StringValue(util.HashString(r.client.APIKey))
 
 	resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
@@ -110,16 +118,10 @@ func (r *CloudfrontIngestionResource) Create(ctx context.Context, req resource.C
 		return
 	}
 
-	org := r.client.Organization
-	if !plan.Organization.IsNull() && !plan.Organization.IsUnknown() && plan.Organization.ValueString() != "" {
-		org = plan.Organization.ValueString()
-	}
-	project := r.client.Project
-	if !plan.Project.IsNull() && !plan.Project.IsUnknown() && plan.Project.ValueString() != "" {
-		project = plan.Project.ValueString()
-	}
+	org := plan.Organization.ValueString()
+	database := plan.Database.ValueString()
 
-	resourceName := util.SanitizeResourceName(fmt.Sprintf("%s-%s-%s", org, project, table))
+	resourceName := util.SanitizeResourceName(fmt.Sprintf("%s-%s-%s", org, database, table))
 
 	awsCfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
 	if err != nil {
@@ -188,7 +190,7 @@ func (r *CloudfrontIngestionResource) Create(ctx context.Context, req resource.C
 
 	// Step 7: Create Firehose delivery stream.
 	firehoseName := fmt.Sprintf("rawtree-cf-%s", resourceName)
-	endpointURL := buildEndpointURL(r.client.APIURL, org, project, table, fields)
+	endpointURL := buildEndpointURL(r.client.APIURL, database, table, fields)
 
 	cfg := firehoseConfig{
 		Name:             firehoseName,
@@ -242,8 +244,7 @@ func (r *CloudfrontIngestionResource) Create(ctx context.Context, req resource.C
 	plan.APIURL = types.StringValue(r.client.APIURL)
 	plan.EndpointURL = types.StringValue(endpointURL)
 	plan.APIKeyHash = types.StringValue(util.HashString(r.client.APIKey))
-	plan.Organization = types.StringValue(org)
-	plan.Project = types.StringValue(project)
+
 	plan.KinesisStreamARN = types.StringValue(kinesisStreamARN)
 	plan.KinesisStreamName = types.StringValue(kinesisStreamName)
 	plan.FirehoseARN = types.StringValue(firehoseARN)
@@ -316,12 +317,6 @@ func (r *CloudfrontIngestionResource) Read(ctx context.Context, req resource.Rea
 
 	data.APIURL = types.StringValue(actualAPIURL)
 	data.EndpointURL = types.StringValue(actualEndpointURL)
-	if data.Organization.IsNull() || data.Organization.ValueString() == "" {
-		data.Organization = types.StringValue(r.client.Organization)
-	}
-	if data.Project.IsNull() || data.Project.ValueString() == "" {
-		data.Project = types.StringValue(r.client.Project)
-	}
 
 	resp.Private.SetKey(ctx, "aws_resources", stateJSON)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -346,14 +341,7 @@ func (r *CloudfrontIngestionResource) Update(ctx context.Context, req resource.U
 		return
 	}
 
-	org := r.client.Organization
-	if !plan.Organization.IsNull() && !plan.Organization.IsUnknown() && plan.Organization.ValueString() != "" {
-		org = plan.Organization.ValueString()
-	}
-	project := r.client.Project
-	if !plan.Project.IsNull() && !plan.Project.IsUnknown() && plan.Project.ValueString() != "" {
-		project = plan.Project.ValueString()
-	}
+	database := plan.Database.ValueString()
 
 	table := plan.Table.ValueString()
 	fields, fieldDiags := extractFieldsFromList(ctx, plan.Fields)
@@ -361,7 +349,7 @@ func (r *CloudfrontIngestionResource) Update(ctx context.Context, req resource.U
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	endpointURL := buildEndpointURL(r.client.APIURL, org, project, table, fields)
+	endpointURL := buildEndpointURL(r.client.APIURL, database, table, fields)
 
 	awsCfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(state.Region))
 	if err != nil {
@@ -398,8 +386,6 @@ func (r *CloudfrontIngestionResource) Update(ctx context.Context, req resource.U
 	plan.APIURL = types.StringValue(r.client.APIURL)
 	plan.EndpointURL = types.StringValue(endpointURL)
 	plan.APIKeyHash = types.StringValue(util.HashString(r.client.APIKey))
-	plan.Organization = types.StringValue(org)
-	plan.Project = types.StringValue(project)
 
 	resp.Private.SetKey(ctx, "aws_resources", stateJSON)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
@@ -530,7 +516,6 @@ func extractFieldsFromList(ctx context.Context, fieldList types.List) ([]string,
 	return result, diags
 }
 
-func buildEndpointURL(apiURL, org, project, table string, fields []string) string {
-	return fmt.Sprintf("%s/v1/%s/%s/tables/%s?transform=firehose&columns=%s",
-		apiURL, org, project, table, strings.Join(sortFieldsCanonical(fields), ","))
+func buildEndpointURL(apiURL, database, table string, fields []string) string {
+	return integrations.TableEndpoint(apiURL, database, table, url.Values{"transform": {"firehose"}, "columns": {strings.Join(sortFieldsCanonical(fields), ",")}})
 }

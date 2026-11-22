@@ -6,6 +6,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
@@ -83,7 +84,7 @@ func updateLambdaCode(ctx context.Context, client *lambda.Client, functionName s
 	if err != nil {
 		return fmt.Errorf("updating Lambda function code: %w", err)
 	}
-	return nil
+	return lambda.NewFunctionUpdatedWaiter(client).Wait(ctx, &lambda.GetFunctionConfigurationInput{FunctionName: aws.String(functionName)}, 5*time.Minute)
 }
 
 // updateLambdaEnvVars updates the Lambda function's environment variables.

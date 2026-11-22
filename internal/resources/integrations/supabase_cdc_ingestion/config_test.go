@@ -53,8 +53,8 @@ func TestResolveConfigDefaultsAndProviderValues(t *testing.T) {
 	if cfg.ResourceName != util.SanitizeResourceName("org-project-orders") {
 		t.Fatalf("unexpected resource name: %s", cfg.ResourceName)
 	}
-	if cfg.Organization != "org" || cfg.Project != "project" {
-		t.Fatalf("expected provider org/project, got %s/%s", cfg.Organization, cfg.Project)
+	if cfg.Organization != "org" || cfg.Database != "project" {
+		t.Fatalf("expected provider org/project, got %s/%s", cfg.Organization, cfg.Database)
 	}
 	if cfg.APIKeyHash != util.HashString("rt_test") {
 		t.Fatalf("unexpected api key hash")
@@ -128,7 +128,7 @@ func TestBuildContainerDefinition(t *testing.T) {
 		Image:        "example/image:sha",
 		APIURL:       "https://api.example.com",
 		Organization: "org",
-		Project:      "project",
+		Database:     "project",
 		Publication:  "rawtree_publication",
 		PipelineID:   "7",
 		Environment:  map[string]string{"EXTRA": "value"},
@@ -159,6 +159,7 @@ func TestBuildContainerDefinition(t *testing.T) {
 		"RAWTREE_API_URL":      "https://api.example.com",
 		"RAWTREE_ORG":          "org",
 		"RAWTREE_PROJECT":      "project",
+		"RAWTREE_DATABASE":     "project",
 		"POSTGRES_PUBLICATION": "rawtree_publication",
 		"PIPELINE_ID":          "7",
 		"EXTRA":                "value",
@@ -229,7 +230,7 @@ func baseModel() SupabaseCDCIngestionModel {
 		InitializationCommand: types.ListNull(types.StringType),
 		WorkerCommand:         types.ListNull(types.StringType),
 		Environment:           types.MapNull(types.StringType),
-		Organization:          types.StringNull(),
-		Project:               types.StringNull(),
+		Organization:          types.StringValue("org"),
+		Database:              types.StringValue("project"),
 	}
 }

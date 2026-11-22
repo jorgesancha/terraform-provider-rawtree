@@ -31,7 +31,7 @@ To stop the local stack, run `bash scripts/codex/run-local-compose.sh 8082 stop`
 
 ## Upgrade from v0.1.0
 
-Run `bash test/upgrade/plan.sh` from the provider repository. It builds the current provider and requires an empty Terraform plan against a synthetic v0.1.0 WAF state.
+Run `bash test/upgrade/plan.sh` from the provider repository. It builds the current provider and checks that both `database` and the deprecated `project` configuration migrate a synthetic v0.1.0 WAF destination in place, keeping its resource ID.
 The check skips AWS refresh and uses a temporary Terraform configuration.
 
 ## Ingestion prerequisites
@@ -72,7 +72,7 @@ export AWS_REGION="us-east-1"
 # Your Rawtree credentials
 export RAWTREE_API_KEY="rw_..."
 export RAWTREE_ORG="my-org"
-export RAWTREE_PROJECT="my-project"
+export RAWTREE_DATABASE="my_database"
 
 # Run S3 ingestion tests
 TF_ACC=1 go test -v -timeout 30m ./internal/resources/integrations/s3_ingestion/
@@ -124,12 +124,12 @@ local development and debugging.
 
 The stub speaks the [Kinesis Data Firehose HTTP endpoint protocol](https://docs.aws.amazon.com/firehose/latest/dev/httpdeliveryrequestresponse.html):
 
-- Receives Firehose deliveries at `POST /v1/{org}/{project}/tables/{table}?transform=firehose`
+- Receives Firehose deliveries at `POST /v1/tables/{table}?database={database}&transform=firehose`
 - Validates `X-Amz-Firehose-Access-Key` header (optional)
 - Decodes base64-encoded records and stores them in memory keyed by table
 - Handles WAF logs that may contain newline-delimited JSON within a single record
 - Deduplicates by `requestId` (Firehose retries use the same ID)
-- Serves `POST /v1/{org}/{project}/query` for `SELECT count() as cnt FROM <table>` queries
+- Serves `POST /v1/query?database={database}` for `SELECT count() as cnt FROM <table>` queries
 - Serves `GET /debug/records` to dump all ingested records
 - Serves `GET /healthz` for health checks
 
@@ -166,13 +166,13 @@ stub via an HTTPS reverse proxy or tunnel (e.g., ngrok, Cloudflare Tunnel).
 curl http://localhost:9876/healthz
 
 # Simulate a Firehose delivery (base64-encode your JSON records)
-curl -X POST 'http://localhost:9876/v1/myorg/myproj/tables/waf_logs?transform=firehose' \
+curl -X POST 'http://localhost:9876/v1/tables/waf_logs?database=my_database&transform=firehose' \
   -H 'Content-Type: application/json' \
   -H 'X-Amz-Firehose-Access-Key: rw_...' \
   -d '{"requestId":"test-001","timestamp":1700000000000,"records":[{"data":"eyJ0aW1lc3RhbXAiOjEyMzR9"}]}'
 
 # Query the count
-curl -X POST 'http://localhost:9876/v1/myorg/myproj/query' \
+curl -X POST 'http://localhost:9876/v1/query?database=my_database' \
   -H 'Content-Type: application/json' \
   -d '{"sql":"SELECT count() as cnt FROM waf_logs"}'
 

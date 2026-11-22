@@ -80,24 +80,19 @@ def handler(event, context):
     # Send to Rawtree API.
     endpoint = INGEST_ENDPOINT if INGEST_ENDPOINT else f"{API_URL}/v1/tables/{TABLE}"
     params = urllib.parse.urlencode({"url": presigned_url})
-    url = f"{endpoint}?{params}"
+    separator = "&" if "?" in endpoint else "?"
+    url = f"{endpoint}{separator}{params}"
 
     req = urllib.request.Request(url, method="POST")
     req.add_header("Authorization", f"Bearer {API_KEY}")
 
     try:
         with urllib.request.urlopen(req, timeout=300) as response:
-            # Rawtree returns an NDJSON event stream (started, progress, done/error).
-            last_event = None
-            for line in response.read().decode().splitlines():
-                line = line.strip()
-                if not line:
-                    continue
-                last_event = json.loads(line)
-                if last_event.get("type") == "error":
-                    raise RuntimeError(f"API error: {last_event}")
-            print(f"Ingested s3://{bucket}/{key}: {last_event}")
-            return {"status": "ingested", "key": key, "result": last_event}
+            result = json.load(response)
+            if not isinstance(result.get("inserted"), int):
+                raise RuntimeError("RawTree did not confirm how many rows were inserted")
+            print(f"Ingested s3://{bucket}/{key}: {result}")
+            return {"status": "ingested", "key": key, "result": result}
     except urllib.error.HTTPError as e:
         body = e.read().decode()
         print(f"Error ingesting s3://{bucket}/{key}: {e.code} {body}")

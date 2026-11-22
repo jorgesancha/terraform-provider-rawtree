@@ -13,8 +13,10 @@ Set `management_token` or `RAWTREE_MANAGEMENT_TOKEN` for native resources. A clu
 If you omit the management token, native resources use the configured API key.
 The database resource takes its organization and cluster as arguments.
 
-Ingestion integrations use `api_key`, `organization`, and `project` from the provider block, environment, or saved CLI settings, in that order.
+Ingestion integrations use `api_key`, `organization`, and `database` from the provider block, environment, or saved CLI settings, in that order.
 Use a dedicated ingestion key when a configuration also manages databases. The provider keeps the management token separate from credentials it sends to AWS.
+
+Use `database` for new integrations. Existing configurations can keep `project` and `RAWTREE_PROJECT`. Set only one spelling per provider or resource block. A resource setting overrides the provider default. The ingestion key selects the organization and cluster. On upgrade, apply the in-place changes to switch existing delivery jobs and streams to the current API.
 
 ## Example Usage
 

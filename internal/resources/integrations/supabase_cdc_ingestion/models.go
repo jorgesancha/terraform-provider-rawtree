@@ -29,6 +29,7 @@ type SupabaseCDCIngestionModel struct {
 	WorkerCommand         types.List   `tfsdk:"worker_command"`
 	Environment           types.Map    `tfsdk:"environment"`
 	Organization          types.String `tfsdk:"organization"`
+	Database              types.String `tfsdk:"database"`
 	Project               types.String `tfsdk:"project"`
 
 	// Provider-derived attributes.

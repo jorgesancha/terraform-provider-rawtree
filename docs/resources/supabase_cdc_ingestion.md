@@ -9,6 +9,8 @@ description: |-
 
 Manages Supabase Postgres CDC ingestion into Rawtree using a single ECS Fargate service. The worker runs the Rawtree Supabase ETL container, connects to the Supabase direct Postgres endpoint, consumes a logical replication publication, and writes CDC events to Rawtree tables.
 
+The stock worker writes to its ingestion key's default database. Issue its key with the destination database selected. Before creating or updating AWS resources, the provider runs `SELECT currentDatabase()` with that key and stops if it cannot verify a match. This check requires a key with query access. Custom worker images receive `RAWTREE_DATABASE` and the legacy `RAWTREE_PROJECT` variable.
+
 ## How It Works
 
 1. **Secrets**: The provider creates a single managed Secrets Manager secret holding the Rawtree API key as JSON. If `database_url` and/or `tls_root_cert_pem` are passed inline they are added to the same JSON document (keys `DATABASE_URL`, `POSTGRES_TLS_ROOT_CERTS`). ECS reads each value via the JSON-key `valueFrom` syntax and injects it into the container as the env var of the same name. External `database_url_secret_arn` / `tls_root_cert_secret_arn` are referenced directly and not copied.
@@ -82,7 +84,8 @@ Exactly one of the following is required:
 - `worker_command` (List of String) - Command for the long-running worker container. Default: `["run"]`.
 - `environment` (Map of String) - Additional non-sensitive environment variables passed to both init and worker containers.
 - `organization` (String) - The Rawtree organization. Defaults to the provider-level organization.
-- `project` (String) - The Rawtree project. Defaults to the provider-level project.
+- `database` (String) selects the destination RawTree database. Defaults to the provider database.
+- `project` (String, deprecated) is an alias for `database`.
 
 ### Read-Only
 

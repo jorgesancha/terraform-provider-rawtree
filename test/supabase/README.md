@@ -119,9 +119,9 @@ simple INSERTs from your laptop.
 # --- Rawtree credentials ---
 export RAWTREE_API_KEY="rt_..."
 export RAWTREE_ORG="your-org"
-export RAWTREE_PROJECT="your-project"
+export RAWTREE_DATABASE="your_database"
 # Production host — never use api.us-east-1.aws.rawtree.dev (internal):
-export RAWTREE_URL="https://api.us-east-1.aws.rawtree.com"
+export RAWTREE_URL="https://api.rawtree.com"
 
 # --- Supabase ---
 # Worker uses the direct (IPv6) URL — required:
@@ -194,7 +194,7 @@ WHERE "Order ID" LIKE 'TEST-%';
 | `Failed to run initialization ECS task` | Init was meant to be off; if you've edited the config, set `run_initialization_task = false`. |
 | `Network is unreachable` in worker logs | VPC didn't get an IPv6 path. Check the route table includes `::/0 → IGW` and the subnet has an IPv6 CIDR. |
 | `InvalidCertificate(UnknownIssuer)` | Missing `RAWTREE_TEST_SUPABASE_TLS_ROOT_CERT_PATH` or the file doesn't contain the Supabase CA. |
-| `RawTree ingest failed: status=502 Bad Gateway` | `RAWTREE_URL` points at `.dev` or another env where your account doesn't exist. Use `https://api.us-east-1.aws.rawtree.com`. |
+| `RawTree ingest failed: status=502 Bad Gateway` | `RAWTREE_URL` points at `.dev` or another env where your account doesn't exist. Use `https://api.rawtree.com`. |
 | `connect: no route to host` from the test process | The test is connecting to Supabase direct from your laptop. Set `RAWTREE_TEST_SUPABASE_INSERT_URL` to the pooler URL. |
 | `Failed to inspect source database recovery state` | The worker can reach Postgres at the TCP level but is failing on something at handshake. Check the CA path, `sslmode` in the URL, and that the user has `REPLICATION` role. |
 | `table sync worker failed ... DestinationQueryFailed` | Worker reached Rawtree's API but got a non-2xx. Most often a 502 from a wrong `RAWTREE_URL`. |

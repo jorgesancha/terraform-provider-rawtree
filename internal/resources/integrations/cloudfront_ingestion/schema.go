@@ -1,6 +1,7 @@
 package cloudfront_ingestion
 
 import (
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"sort"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
@@ -211,10 +212,16 @@ func resourceSchema() schema.Schema {
 				Computed:    true,
 				Description: "The Rawtree organization. Defaults to the provider-level organization.",
 			},
+			"database": schema.StringAttribute{
+				Optional: true, Computed: true,
+				Validators:  []validator.String{stringvalidator.ConflictsWith(path.MatchRoot("project"))},
+				Description: "RawTree destination database. Defaults to the provider database.",
+			},
 			"project": schema.StringAttribute{
-				Optional:    true,
-				Computed:    true,
-				Description: "The Rawtree project. Defaults to the provider-level project.",
+				DeprecationMessage: "Use database instead.",
+				Optional:           true,
+				Computed:           true,
+				Description:        "Deprecated alias for the RawTree destination database.",
 			},
 
 			"api_url": schema.StringAttribute{

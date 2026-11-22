@@ -37,8 +37,8 @@ func testAccPreCheck(t *testing.T) {
 	if v := os.Getenv("RAWTREE_ORG"); v == "" {
 		t.Fatal("RAWTREE_ORG must be set for acceptance tests")
 	}
-	if v := os.Getenv("RAWTREE_PROJECT"); v == "" {
-		t.Fatal("RAWTREE_PROJECT must be set for acceptance tests")
+	if v := os.Getenv("RAWTREE_DATABASE"); v == "" {
+		t.Fatal("RAWTREE_DATABASE must be set for acceptance tests")
 	}
 	if v := os.Getenv("RAWTREE_TEST_S3_BUCKET"); v == "" {
 		t.Fatal("RAWTREE_TEST_S3_BUCKET must be set for acceptance tests (an existing S3 bucket with test data)")

@@ -18,8 +18,8 @@ func Configure(req resource.ConfigureRequest, resp *resource.ConfigureResponse) 
 		return nil
 	}
 	c := clients.Integrations
-	if c.APIKey == "" || c.Organization == "" || c.Project == "" {
-		resp.Diagnostics.AddError("Missing ingestion settings", "Configure an ingestion API key, organization, and project for this integration.")
+	if c.APIKey == "" {
+		resp.Diagnostics.AddError("Missing ingestion settings", "Configure an ingestion API key for this integration.")
 		return nil
 	}
 	return c

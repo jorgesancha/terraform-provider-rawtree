@@ -1,17 +1,21 @@
 package provider
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
-	"fmt"
+
 	"os"
 	"path/filepath"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/list"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/rawtreedb/terraform-provider-rawtree/internal/client"
@@ -23,7 +27,7 @@ import (
 )
 
 const (
-	defaultAPIURL = "https://api.us-east-1.aws.rawtree.com"
+	defaultAPIURL = "https://api.rawtree.com"
 	cliConfigPath = ".config/rtree/config.json"
 )
 
@@ -38,6 +42,7 @@ type RawtreeProviderModel struct {
 	APIKey          types.String `tfsdk:"api_key"`
 	APIURL          types.String `tfsdk:"api_url"`
 	Organization    types.String `tfsdk:"organization"`
+	Database        types.String `tfsdk:"database"`
 	Project         types.String `tfsdk:"project"`
 }
 
@@ -45,6 +50,8 @@ type RawtreeProviderModel struct {
 type cliConfig struct {
 	Token               string `json:"token"`
 	URL                 string `json:"url"`
+	Database            string `json:"database"`
+	DefaultDatabase     string `json:"default_database"`
 	DefaultProject      string `json:"default_project"`
 	DefaultOrganization string `json:"default_organization"`
 }
@@ -78,15 +85,20 @@ func (p *RawtreeProvider) Schema(_ context.Context, _ provider.SchemaRequest, re
 			},
 			"api_url": schema.StringAttribute{
 				Optional:    true,
-				Description: fmt.Sprintf("RawTree API URL. Defaults to https://api.rawtree.com for native resources and %s for integrations. Can also be set via RAWTREE_URL.", defaultAPIURL),
+				Description: "RawTree API origin. Defaults to https://api.rawtree.com. Can also be set with RAWTREE_URL.",
 			},
 			"organization": schema.StringAttribute{
 				Optional:    true,
-				Description: "Organization name for integrations. Can also be set with RAWTREE_ORG.",
+				Description: "Default RawTree organization used to name integration infrastructure. The ingestion key selects the organization and cluster for API requests. Can also be set with RAWTREE_ORG.",
+			},
+			"database": schema.StringAttribute{
+				Optional: true, Description: "Default RawTree destination database for ingestion integrations. Can also be set with RAWTREE_DATABASE.",
+				Validators: []validator.String{stringvalidator.ConflictsWith(path.MatchRoot("project"))},
 			},
 			"project": schema.StringAttribute{
-				Optional:    true,
-				Description: "Project name for integrations. Can also be set with RAWTREE_PROJECT.",
+				DeprecationMessage: "Use database instead.",
+				Optional:           true,
+				Description:        "Legacy alias for database. RAWTREE_PROJECT is also supported.",
 			},
 		},
 	}
@@ -106,19 +118,17 @@ func (p *RawtreeProvider) Configure(ctx context.Context, req provider.ConfigureR
 	apiURL := resolveString(config.APIURL, "RAWTREE_URL", cli.URL)
 	managementToken := resolveString(config.ManagementToken, "RAWTREE_MANAGEMENT_TOKEN", apiKey)
 	org := resolveString(config.Organization, "RAWTREE_ORG", cli.DefaultOrganization)
-	project := resolveString(config.Project, "RAWTREE_PROJECT", cli.DefaultProject)
-	platformURL, integrationURL := apiURL, apiURL
+	database := ingestionDatabase(config, cli)
 	if apiURL == "" {
-		platformURL = "https://api.rawtree.com"
-		integrationURL = defaultAPIURL
+		apiURL = defaultAPIURL
 	}
 	if managementToken == "" {
 		resp.Diagnostics.AddError("Missing RawTree credential", "Set management_token or RAWTREE_MANAGEMENT_TOKEN for native resources, or configure an API key.")
 		return
 	}
 	c := &client.Clients{
-		Platform:     client.NewPlatformClient(platformURL, managementToken),
-		Integrations: client.New(apiKey, integrationURL, org, project),
+		Platform:     client.NewPlatformClient(apiURL, managementToken),
+		Integrations: client.New(apiKey, apiURL, org, database),
 	}
 
 	resp.DataSourceData = c
@@ -142,6 +152,15 @@ func (p *RawtreeProvider) ListResources(_ context.Context) []func() list.ListRes
 
 func (p *RawtreeProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return nil
+}
+
+// At each source, database takes precedence over the legacy project spelling.
+func ingestionDatabase(config RawtreeProviderModel, cli cliConfig) string {
+	return cmp.Or(
+		config.Database.ValueString(), config.Project.ValueString(),
+		os.Getenv("RAWTREE_DATABASE"), os.Getenv("RAWTREE_PROJECT"),
+		cli.Database, cli.DefaultDatabase, cli.DefaultProject,
+	)
 }
 
 // resolveString returns the first non-empty value from: TF config, env var, fallback.

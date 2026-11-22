@@ -2,7 +2,7 @@ package cloudfront_ingestion
 
 import (
 	"context"
-	"strings"
+	"net/url"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -36,6 +36,7 @@ func testSchemaType() tftypes.Object {
 			"api_url":                 tftypes.String,
 			"api_key_hash":            tftypes.String,
 			"organization":            tftypes.String,
+			"database":                tftypes.String,
 			"project":                 tftypes.String,
 			"endpoint_url":            tftypes.String,
 			"kinesis_stream_arn":      tftypes.String,
@@ -69,8 +70,9 @@ func testStateValues(apiURL, apiKeyHash, org, project, table, endpointURL string
 		"s3_backup_mode":          tftypes.NewValue(tftypes.String, "FailedDataOnly"),
 		"api_url":                 tftypes.NewValue(tftypes.String, apiURL),
 		"api_key_hash":            tftypes.NewValue(tftypes.String, apiKeyHash),
-		"organization":            tftypes.NewValue(tftypes.String, org),
-		"project":                 tftypes.NewValue(tftypes.String, project),
+		"organization":            nullableScope(org),
+		"database":                tftypes.NewValue(tftypes.String, nil),
+		"project":                 nullableScope(project),
 		"endpoint_url":            tftypes.NewValue(tftypes.String, endpointURL),
 		"kinesis_stream_arn":      tftypes.NewValue(tftypes.String, "arn:aws:kinesis:us-east-1:123456789012:stream/test"),
 		"kinesis_stream_name":     tftypes.NewValue(tftypes.String, "rawtree-cf-test"),
@@ -113,7 +115,7 @@ func TestModifyPlan_APIURLDrift(t *testing.T) {
 	org := "myorg"
 	project := "myproject"
 	table := "cf_logs"
-	oldEndpoint := oldURL + "/v1/" + org + "/" + project + "/tables/" + table + "?transform=firehose&columns=c-ip,sc-status,timestamp"
+	oldEndpoint := oldURL + "/v1/tables/" + table + "?columns=c-ip%2Csc-status%2Ctimestamp" + "&database=" + project + "&transform=firehose"
 	oldKeyHash := util.HashString("old-key")
 
 	r := newTestResource(newURL, "old-key", org, project)
@@ -122,8 +124,9 @@ func TestModifyPlan_APIURLDrift(t *testing.T) {
 	planVals := testStateValues(oldURL, oldKeyHash, org, project, table, oldEndpoint)
 
 	req := resource.ModifyPlanRequest{
-		State: buildTFState(stateVals),
-		Plan:  buildTFPlan(planVals),
+		State:  buildTFState(stateVals),
+		Config: tfsdk.Config{Schema: resourceSchema(), Raw: tftypes.NewValue(testSchemaType(), planVals)},
+		Plan:   buildTFPlan(planVals),
 	}
 	resp := &resource.ModifyPlanResponse{
 		Plan: buildTFPlan(planVals),
@@ -141,7 +144,8 @@ func TestModifyPlan_APIURLDrift(t *testing.T) {
 		t.Errorf("expected api_url %q, got %q", newURL, m.APIURL.ValueString())
 	}
 
-	if !strings.Contains(m.EndpointURL.ValueString(), newURL+"/v1/"+org+"/"+project+"/tables/"+table+"?transform=firehose&columns=") {
+	parsed, err := url.Parse(m.EndpointURL.ValueString())
+	if err != nil || newURL+"/v1/tables/"+table != parsed.Scheme+"://"+parsed.Host+parsed.Path || parsed.Query().Get("database") != project || parsed.Query().Get("transform") != "firehose" || parsed.Query().Get("columns") == "" || m.Organization.ValueString() != org {
 		t.Errorf("expected endpoint_url to contain new URL with columns param, got %q", m.EndpointURL.ValueString())
 	}
 }
@@ -153,7 +157,7 @@ func TestModifyPlan_APIKeyDrift(t *testing.T) {
 	org := "myorg"
 	project := "myproject"
 	table := "cf_logs"
-	endpoint := apiURL + "/v1/" + org + "/" + project + "/tables/" + table + "?transform=firehose&columns=c-ip,sc-status,timestamp"
+	endpoint := apiURL + "/v1/tables/" + table + "?columns=c-ip%2Csc-status%2Ctimestamp" + "&database=" + project + "&transform=firehose"
 	oldKeyHash := util.HashString("old-key")
 	newKeyHash := util.HashString("new-key")
 
@@ -163,8 +167,9 @@ func TestModifyPlan_APIKeyDrift(t *testing.T) {
 	planVals := testStateValues(apiURL, oldKeyHash, org, project, table, endpoint)
 
 	req := resource.ModifyPlanRequest{
-		State: buildTFState(stateVals),
-		Plan:  buildTFPlan(planVals),
+		State:  buildTFState(stateVals),
+		Config: tfsdk.Config{Schema: resourceSchema(), Raw: tftypes.NewValue(testSchemaType(), planVals)},
+		Plan:   buildTFPlan(planVals),
 	}
 	resp := &resource.ModifyPlanResponse{
 		Plan: buildTFPlan(planVals),
@@ -204,8 +209,9 @@ func TestModifyPlan_OrganizationDrift(t *testing.T) {
 	planVals := testStateValues(apiURL, keyHash, "", project, table, oldEndpoint)
 
 	req := resource.ModifyPlanRequest{
-		State: buildTFState(stateVals),
-		Plan:  buildTFPlan(planVals),
+		State:  buildTFState(stateVals),
+		Config: tfsdk.Config{Schema: resourceSchema(), Raw: tftypes.NewValue(testSchemaType(), planVals)},
+		Plan:   buildTFPlan(planVals),
 	}
 	resp := &resource.ModifyPlanResponse{
 		Plan: buildTFPlan(planVals),
@@ -219,8 +225,9 @@ func TestModifyPlan_OrganizationDrift(t *testing.T) {
 
 	m := readPlanModel(t, resp.Plan)
 
-	if !strings.Contains(m.EndpointURL.ValueString(), apiURL+"/v1/"+newOrg+"/"+project+"/tables/"+table+"?transform=firehose&columns=") {
-		t.Errorf("expected endpoint_url to contain new org with columns param, got %q", m.EndpointURL.ValueString())
+	parsed, err := url.Parse(m.EndpointURL.ValueString())
+	if err != nil || apiURL+"/v1/tables/"+table != parsed.Scheme+"://"+parsed.Host+parsed.Path || parsed.Query().Get("database") != project || parsed.Query().Get("transform") != "firehose" || parsed.Query().Get("columns") == "" || m.Organization.ValueString() != newOrg {
+		t.Errorf("expected the current table endpoint, got %q", m.EndpointURL.ValueString())
 	}
 }
 
@@ -232,7 +239,7 @@ func TestModifyPlan_ProjectDrift(t *testing.T) {
 	oldProject := "old-project"
 	newProject := "new-project"
 	table := "cf_logs"
-	oldEndpoint := apiURL + "/v1/" + org + "/" + oldProject + "/tables/" + table + "?transform=firehose&columns=c-ip,sc-status,timestamp"
+	oldEndpoint := apiURL + "/v1/tables/" + table + "?columns=c-ip%2Csc-status%2Ctimestamp" + "&database=" + oldProject + "&transform=firehose"
 	keyHash := util.HashString("key")
 
 	r := newTestResource(apiURL, "key", org, newProject)
@@ -241,8 +248,9 @@ func TestModifyPlan_ProjectDrift(t *testing.T) {
 	planVals := testStateValues(apiURL, keyHash, org, "", table, oldEndpoint)
 
 	req := resource.ModifyPlanRequest{
-		State: buildTFState(stateVals),
-		Plan:  buildTFPlan(planVals),
+		State:  buildTFState(stateVals),
+		Config: tfsdk.Config{Schema: resourceSchema(), Raw: tftypes.NewValue(testSchemaType(), planVals)},
+		Plan:   buildTFPlan(planVals),
 	}
 	resp := &resource.ModifyPlanResponse{
 		Plan: buildTFPlan(planVals),
@@ -256,7 +264,8 @@ func TestModifyPlan_ProjectDrift(t *testing.T) {
 
 	m := readPlanModel(t, resp.Plan)
 
-	if !strings.Contains(m.EndpointURL.ValueString(), apiURL+"/v1/"+org+"/"+newProject+"/tables/"+table+"?transform=firehose&columns=") {
+	parsed, err := url.Parse(m.EndpointURL.ValueString())
+	if err != nil || apiURL+"/v1/tables/"+table != parsed.Scheme+"://"+parsed.Host+parsed.Path || parsed.Query().Get("database") != newProject || parsed.Query().Get("transform") != "firehose" || parsed.Query().Get("columns") == "" || m.Organization.ValueString() != org {
 		t.Errorf("expected endpoint_url to contain new project with columns param, got %q", m.EndpointURL.ValueString())
 	}
 }
@@ -268,7 +277,7 @@ func TestModifyPlan_NoDrift(t *testing.T) {
 	org := "myorg"
 	project := "myproject"
 	table := "cf_logs"
-	endpoint := apiURL + "/v1/" + org + "/" + project + "/tables/" + table + "?transform=firehose&columns=c-ip,sc-status,timestamp"
+	endpoint := apiURL + "/v1/tables/" + table + "?columns=c-ip%2Csc-status%2Ctimestamp" + "&database=" + project + "&transform=firehose"
 	key := "my-key"
 	keyHash := util.HashString(key)
 
@@ -278,8 +287,9 @@ func TestModifyPlan_NoDrift(t *testing.T) {
 	planVals := testStateValues(apiURL, keyHash, org, project, table, endpoint)
 
 	req := resource.ModifyPlanRequest{
-		State: buildTFState(stateVals),
-		Plan:  buildTFPlan(planVals),
+		State:  buildTFState(stateVals),
+		Config: tfsdk.Config{Schema: resourceSchema(), Raw: tftypes.NewValue(testSchemaType(), planVals)},
+		Plan:   buildTFPlan(planVals),
 	}
 	resp := &resource.ModifyPlanResponse{
 		Plan: buildTFPlan(planVals),
@@ -296,7 +306,8 @@ func TestModifyPlan_NoDrift(t *testing.T) {
 	if m.APIURL.ValueString() != apiURL {
 		t.Errorf("api_url should not change: expected %q, got %q", apiURL, m.APIURL.ValueString())
 	}
-	if !strings.Contains(m.EndpointURL.ValueString(), apiURL+"/v1/"+org+"/"+project+"/tables/"+table+"?transform=firehose&columns=") {
+	parsed, err := url.Parse(m.EndpointURL.ValueString())
+	if err != nil || apiURL+"/v1/tables/"+table != parsed.Scheme+"://"+parsed.Host+parsed.Path || parsed.Query().Get("database") != project || parsed.Query().Get("transform") != "firehose" || parsed.Query().Get("columns") == "" || m.Organization.ValueString() != org {
 		t.Errorf("endpoint_url unexpected: got %q", m.EndpointURL.ValueString())
 	}
 	if m.APIKeyHash.ValueString() != keyHash {
@@ -324,8 +335,9 @@ func TestModifyPlan_MultipleFieldDrift(t *testing.T) {
 	planVals := testStateValues(oldURL, oldKeyHash, "", project, table, oldEndpoint)
 
 	req := resource.ModifyPlanRequest{
-		State: buildTFState(stateVals),
-		Plan:  buildTFPlan(planVals),
+		State:  buildTFState(stateVals),
+		Config: tfsdk.Config{Schema: resourceSchema(), Raw: tftypes.NewValue(testSchemaType(), planVals)},
+		Plan:   buildTFPlan(planVals),
 	}
 	resp := &resource.ModifyPlanResponse{
 		Plan: buildTFPlan(planVals),
@@ -343,7 +355,8 @@ func TestModifyPlan_MultipleFieldDrift(t *testing.T) {
 		t.Errorf("expected api_url %q, got %q", newURL, m.APIURL.ValueString())
 	}
 
-	if !strings.Contains(m.EndpointURL.ValueString(), newURL+"/v1/"+newOrg+"/"+project+"/tables/"+table+"?transform=firehose&columns=") {
+	parsed, err := url.Parse(m.EndpointURL.ValueString())
+	if err != nil || newURL+"/v1/tables/"+table != parsed.Scheme+"://"+parsed.Host+parsed.Path || parsed.Query().Get("database") != project || parsed.Query().Get("transform") != "firehose" || parsed.Query().Get("columns") == "" || m.Organization.ValueString() != newOrg {
 		t.Errorf("expected endpoint_url to contain new URL/org with columns param, got %q", m.EndpointURL.ValueString())
 	}
 
@@ -353,7 +366,7 @@ func TestModifyPlan_MultipleFieldDrift(t *testing.T) {
 	}
 }
 
-func TestModifyPlan_SkipsOnCreate(t *testing.T) {
+func TestModifyPlan_Create(t *testing.T) {
 	t.Parallel()
 
 	r := newTestResource("https://api.example.com", "key", "org", "project")
@@ -362,8 +375,9 @@ func TestModifyPlan_SkipsOnCreate(t *testing.T) {
 		"https://api.example.com/v1/org/project/tables/cf_logs?transform=firehose&columns=c-ip,sc-status,timestamp")
 
 	req := resource.ModifyPlanRequest{
-		State: tfsdk.State{Schema: resourceSchema(), Raw: tftypes.NewValue(testSchemaType(), nil)},
-		Plan:  buildTFPlan(planVals),
+		State:  tfsdk.State{Schema: resourceSchema(), Raw: tftypes.NewValue(testSchemaType(), nil)},
+		Config: tfsdk.Config{Schema: resourceSchema(), Raw: tftypes.NewValue(testSchemaType(), planVals)},
+		Plan:   buildTFPlan(planVals),
 	}
 	resp := &resource.ModifyPlanResponse{
 		Plan: buildTFPlan(planVals),
@@ -401,3 +415,10 @@ func TestModifyPlan_SkipsOnDestroy(t *testing.T) {
 
 // Verify the unused import is used.
 var _ attr.Value = types.StringValue("")
+
+func nullableScope(value string) tftypes.Value {
+	if value == "" {
+		return tftypes.NewValue(tftypes.String, nil)
+	}
+	return tftypes.NewValue(tftypes.String, value)
+}

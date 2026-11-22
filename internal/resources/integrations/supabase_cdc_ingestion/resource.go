@@ -48,7 +48,7 @@ func (r *SupabaseCDCIngestionResource) Configure(_ context.Context, req resource
 }
 
 func (r *SupabaseCDCIngestionResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() || r.client == nil {
+	if req.Plan.Raw.IsNull() || r.client == nil {
 		return
 	}
 
@@ -58,19 +58,16 @@ func (r *SupabaseCDCIngestionResource) ModifyPlan(ctx context.Context, req resou
 		return
 	}
 
-	org := r.client.Organization
-	if stringSet(plan.Organization) {
-		org = plan.Organization.ValueString()
+	var diags diag.Diagnostics
+	plan.Organization, plan.Database, diags = integrations.Destination(ctx, req.Config, r.client)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
-	project := r.client.Project
-	if stringSet(plan.Project) {
-		project = plan.Project.ValueString()
-	}
+	plan.Project = plan.Database
 
 	plan.APIURL = types.StringValue(r.client.APIURL)
 	plan.APIKeyHash = types.StringValue(util.HashString(r.client.APIKey))
-	plan.Organization = types.StringValue(org)
-	plan.Project = types.StringValue(project)
 
 	resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
 }
@@ -85,6 +82,10 @@ func (r *SupabaseCDCIngestionResource) Create(ctx context.Context, req resource.
 	cfg, diags := resolveConfig(ctx, &plan, r.client)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+	if err := verifyWorkerDestination(ctx, r.client, cfg); err != nil {
+		resp.Diagnostics.AddError("Cannot verify Supabase CDC destination", err.Error())
 		return
 	}
 
@@ -239,15 +240,6 @@ func (r *SupabaseCDCIngestionResource) Read(ctx context.Context, req resource.Re
 		return
 	}
 
-	data.APIURL = types.StringValue(r.client.APIURL)
-	data.APIKeyHash = types.StringValue(util.HashString(r.client.APIKey))
-	if data.Organization.IsNull() || data.Organization.ValueString() == "" {
-		data.Organization = types.StringValue(r.client.Organization)
-	}
-	if data.Project.IsNull() || data.Project.ValueString() == "" {
-		data.Project = types.StringValue(r.client.Project)
-	}
-
 	resp.Private.SetKey(ctx, "aws_resources", stateJSON)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -268,6 +260,10 @@ func (r *SupabaseCDCIngestionResource) Update(ctx context.Context, req resource.
 	cfg, diags := resolveConfig(ctx, &plan, r.client)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+	if err := verifyWorkerDestination(ctx, r.client, cfg); err != nil {
+		resp.Diagnostics.AddError("Cannot verify Supabase CDC destination", err.Error())
 		return
 	}
 
@@ -423,11 +419,12 @@ func (r *SupabaseCDCIngestionResource) ImportState(_ context.Context, _ resource
 func setComputedValues(plan *SupabaseCDCIngestionModel, cfg resolvedConfig, state awsResourceState) {
 	plan.InitializationCommand = stringListValue(cfg.InitCommand)
 	plan.WorkerCommand = stringListValue(cfg.WorkerCommand)
-	plan.ID = types.StringValue(cfg.ResourceName)
+	plan.ID = types.StringValue(state.ResourceName)
 	plan.APIURL = types.StringValue(cfg.APIURL)
 	plan.APIKeyHash = types.StringValue(cfg.APIKeyHash)
 	plan.Organization = types.StringValue(cfg.Organization)
-	plan.Project = types.StringValue(cfg.Project)
+	plan.Database = types.StringValue(cfg.Database)
+	plan.Project = plan.Database
 	plan.ClusterARN = types.StringValue(state.ClusterARN)
 	plan.ServiceARN = types.StringValue(state.ServiceARN)
 	plan.TaskDefinitionARN = types.StringValue(state.TaskDefinitionARN)

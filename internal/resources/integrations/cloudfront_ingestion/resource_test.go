@@ -40,13 +40,12 @@ func TestEndpointURL(t *testing.T) {
 	t.Parallel()
 
 	apiURL := "https://api.us-east-1.aws.rawtree.com"
-	org := "myorg"
 	project := "myproject"
 	table := "cf_logs"
 	fields := []string{"timestamp", "c-ip", "sc-status"}
 
-	expected := "https://api.us-east-1.aws.rawtree.com/v1/myorg/myproject/tables/cf_logs?transform=firehose&columns=timestamp,c-ip,sc-status"
-	got := buildEndpointURL(apiURL, org, project, table, fields)
+	expected := "https://api.us-east-1.aws.rawtree.com/v1/tables/cf_logs?columns=timestamp%2Cc-ip%2Csc-status&database=myproject&transform=firehose"
+	got := buildEndpointURL(apiURL, project, table, fields)
 
 	if got != expected {
 		t.Errorf("endpoint URL mismatch:\n  got:  %s\n  want: %s", got, expected)

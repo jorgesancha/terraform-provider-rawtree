@@ -2,6 +2,7 @@ package s3_ingestion
 
 import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -65,10 +66,16 @@ func resourceSchema() schema.Schema {
 				Computed:    true,
 				Description: "The Rawtree organization. Defaults to the provider-level organization.",
 			},
+			"database": schema.StringAttribute{
+				Optional: true, Computed: true,
+				Validators:  []validator.String{stringvalidator.ConflictsWith(path.MatchRoot("project"))},
+				Description: "RawTree destination database. Defaults to the provider database.",
+			},
 			"project": schema.StringAttribute{
-				Optional:    true,
-				Computed:    true,
-				Description: "The Rawtree project. Defaults to the provider-level project.",
+				DeprecationMessage: "Use database instead.",
+				Optional:           true,
+				Computed:           true,
+				Description:        "Deprecated alias for the RawTree destination database.",
 			},
 
 			// Provider-derived attributes (trigger update when provider config changes).

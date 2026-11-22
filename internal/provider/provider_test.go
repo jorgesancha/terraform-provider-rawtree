@@ -217,3 +217,24 @@ func TestProviderSeparatesManagementAndIngestionCredentials(t *testing.T) {
 		}
 	}
 }
+
+func TestIngestionDatabasePrecedence(t *testing.T) {
+	cli := cliConfig{Database: "saved", DefaultProject: "old-saved"}
+	for _, tc := range []struct{ db, project, envDB, envProject, want string }{
+		{"explicit", "", "env", "old-env", "explicit"},
+		{"", "old-explicit", "env", "old-env", "old-explicit"},
+		{"", "", "env", "old-env", "env"},
+		{"", "", "", "old-env", "old-env"},
+		{"", "", "", "", "saved"},
+	} {
+		t.Setenv("RAWTREE_DATABASE", tc.envDB)
+		t.Setenv("RAWTREE_PROJECT", tc.envProject)
+		cfg := RawtreeProviderModel{Database: types.StringValue(tc.db), Project: types.StringValue(tc.project)}
+		if got := ingestionDatabase(cfg, cli); got != tc.want {
+			t.Errorf("got %q, want %q", got, tc.want)
+		}
+	}
+	if got := ingestionDatabase(RawtreeProviderModel{}, cliConfig{DefaultProject: "legacy"}); got != "legacy" {
+		t.Errorf("lost legacy saved default: %q", got)
+	}
+}

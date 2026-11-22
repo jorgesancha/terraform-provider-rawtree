@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -36,7 +37,7 @@ const testRegion = "us-east-1"
 //
 // Required:
 //
-//	RAWTREE_API_KEY, RAWTREE_ORG, RAWTREE_PROJECT
+//	RAWTREE_API_KEY, RAWTREE_ORG, RAWTREE_DATABASE
 //	RAWTREE_TEST_SUPABASE_DATABASE_URL   Postgres connection string (any reachable
 //	                                     value works — the worker will try to
 //	                                     connect but the resource itself completes
@@ -53,7 +54,7 @@ func testAccPreCheck(t *testing.T) {
 	required := []string{
 		"RAWTREE_API_KEY",
 		"RAWTREE_ORG",
-		"RAWTREE_PROJECT",
+		"RAWTREE_DATABASE",
 		"RAWTREE_TEST_SUPABASE_DATABASE_URL",
 		"RAWTREE_TEST_SUPABASE_SUBNETS",
 	}
@@ -468,7 +469,7 @@ func preCreateECSCluster(t *testing.T, name string) string {
 func computeClusterName(t *testing.T, name string) string {
 	t.Helper()
 	org := os.Getenv("RAWTREE_ORG")
-	project := os.Getenv("RAWTREE_PROJECT")
+	project := os.Getenv("RAWTREE_DATABASE")
 	resourceName := util.SanitizeResourceName(fmt.Sprintf("%s-%s-%s", org, project, name))
 	return fmt.Sprintf("rawtree-supabase-cdc-%s", resourceName)
 }
@@ -599,7 +600,7 @@ func testAccPreCheckE2E(t *testing.T) {
 	required := []string{
 		"RAWTREE_API_KEY",
 		"RAWTREE_ORG",
-		"RAWTREE_PROJECT",
+		"RAWTREE_DATABASE",
 		"RAWTREE_TEST_SUPABASE_DATABASE_URL",
 	}
 	for _, name := range required {
@@ -774,12 +775,11 @@ func rawtreeQueryEndpoint() (queryURL, apiKey string) {
 	// (production) when RAWTREE_URL is unset, so we use the same default here.
 	apiURL := os.Getenv("RAWTREE_URL")
 	if apiURL == "" {
-		apiURL = "https://api.us-east-1.aws.rawtree.com"
+		apiURL = "https://api.rawtree.com"
 	}
 	apiKey = os.Getenv("RAWTREE_API_KEY")
-	org := os.Getenv("RAWTREE_ORG")
-	project := os.Getenv("RAWTREE_PROJECT")
-	queryURL = fmt.Sprintf("%s/v1/%s/%s/query", apiURL, org, project)
+	project := os.Getenv("RAWTREE_DATABASE")
+	queryURL = fmt.Sprintf("%s/v1/query?database=%s", apiURL, url.QueryEscape(project))
 	return queryURL, apiKey
 }
 

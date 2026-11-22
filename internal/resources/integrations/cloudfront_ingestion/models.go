@@ -23,6 +23,7 @@ type CloudfrontIngestionModel struct {
 	APIURL       types.String `tfsdk:"api_url"`
 	APIKeyHash   types.String `tfsdk:"api_key_hash"`
 	Organization types.String `tfsdk:"organization"`
+	Database     types.String `tfsdk:"database"`
 	Project      types.String `tfsdk:"project"`
 
 	// Full Firehose HTTP endpoint URL.

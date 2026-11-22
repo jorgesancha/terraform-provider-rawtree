@@ -39,6 +39,10 @@ resource "rawtree_s3_ingestion" "events" {
 
 ### Optional
 
+- `organization` (String) is the RawTree organization used in AWS resource names. Defaults to the provider organization.
+- `database` (String) selects the destination database. Defaults to the provider database.
+- `project` (String, deprecated) is an alias for `database`.
+
 - `prefix` (String) - S3 key prefix to filter objects. Changing this forces a new resource.
 - `file_pattern` (String) - Regular expression pattern to filter object keys.
 

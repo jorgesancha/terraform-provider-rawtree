@@ -46,7 +46,7 @@ type resolvedConfig struct {
 	WorkerCommand         []string
 	Environment           map[string]string
 	Organization          string
-	Project               string
+	Database              string
 	APIURL                string
 	APIKey                string
 	APIKeyHash            string
@@ -90,14 +90,8 @@ func resolveConfig(ctx context.Context, plan *SupabaseCDCIngestionModel, c *clie
 		workerCommand = []string{"run"}
 	}
 
-	org := c.Organization
-	if stringSet(plan.Organization) {
-		org = plan.Organization.ValueString()
-	}
-	project := c.Project
-	if stringSet(plan.Project) {
-		project = plan.Project.ValueString()
-	}
+	org := plan.Organization.ValueString()
+	database := plan.Database.ValueString()
 
 	cfg := resolvedConfig{
 		Name:                  plan.Name.ValueString(),
@@ -120,12 +114,12 @@ func resolveConfig(ctx context.Context, plan *SupabaseCDCIngestionModel, c *clie
 		WorkerCommand:         workerCommand,
 		Environment:           env,
 		Organization:          org,
-		Project:               project,
+		Database:              database,
 		APIURL:                c.APIURL,
 		APIKey:                c.APIKey,
 		APIKeyHash:            util.HashString(c.APIKey),
 	}
-	cfg.ResourceName = util.SanitizeResourceName(fmt.Sprintf("%s-%s-%s", org, project, cfg.Name))
+	cfg.ResourceName = util.SanitizeResourceName(fmt.Sprintf("%s-%s-%s", org, database, cfg.Name))
 
 	validateResolvedConfig(cfg, &diags)
 	return cfg, diags
@@ -177,7 +171,8 @@ func buildContainerDefinition(cfg resolvedConfig, names ecsNames, refs ecsSecret
 	env := []ecstypes.KeyValuePair{
 		{Name: strptr("RAWTREE_API_URL"), Value: strptr(cfg.APIURL)},
 		{Name: strptr("RAWTREE_ORG"), Value: strptr(cfg.Organization)},
-		{Name: strptr("RAWTREE_PROJECT"), Value: strptr(cfg.Project)},
+		{Name: strptr("RAWTREE_DATABASE"), Value: strptr(cfg.Database)},
+		{Name: strptr("RAWTREE_PROJECT"), Value: strptr(cfg.Database)},
 		{Name: strptr("POSTGRES_PUBLICATION"), Value: strptr(cfg.Publication)},
 		{Name: strptr("PIPELINE_ID"), Value: strptr(cfg.PipelineID)},
 	}

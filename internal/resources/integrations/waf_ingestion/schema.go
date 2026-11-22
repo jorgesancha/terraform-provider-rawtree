@@ -3,6 +3,7 @@ package waf_ingestion
 import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -76,10 +77,16 @@ func resourceSchema() schema.Schema {
 				Computed:    true,
 				Description: "The Rawtree organization. Defaults to the provider-level organization.",
 			},
+			"database": schema.StringAttribute{
+				Optional: true, Computed: true,
+				Validators:  []validator.String{stringvalidator.ConflictsWith(path.MatchRoot("project"))},
+				Description: "RawTree destination database. Defaults to the provider database.",
+			},
 			"project": schema.StringAttribute{
-				Optional:    true,
-				Computed:    true,
-				Description: "The Rawtree project. Defaults to the provider-level project.",
+				DeprecationMessage: "Use database instead.",
+				Optional:           true,
+				Computed:           true,
+				Description:        "Deprecated alias for the RawTree destination database.",
 			},
 
 			"api_url": schema.StringAttribute{
@@ -93,7 +100,7 @@ func resourceSchema() schema.Schema {
 			},
 			"endpoint_url": schema.StringAttribute{
 				Computed:    true,
-				Description: "The full Firehose HTTP endpoint URL (e.g. {api_url}/v1/{org}/{project}/tables/{table}?transform=firehose).",
+				Description: "The full Firehose HTTP endpoint URL (e.g. {api_url}/v1/tables/{table}?database={database}&transform=firehose).",
 			},
 
 			"firehose_arn": schema.StringAttribute{

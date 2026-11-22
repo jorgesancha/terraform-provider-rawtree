@@ -3,7 +3,10 @@ package s3_ingestion
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	gluetypes "github.com/aws/aws-sdk-go-v2/service/glue/types"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -22,6 +25,7 @@ import (
 )
 
 var (
+	_ resource.ResourceWithModifyPlan  = (*S3IngestionResource)(nil)
 	_ resource.Resource                = &S3IngestionResource{}
 	_ resource.ResourceWithImportState = &S3IngestionResource{}
 )
@@ -46,6 +50,27 @@ func (r *S3IngestionResource) Configure(_ context.Context, req resource.Configur
 	r.client = integrations.Configure(req, resp)
 }
 
+func (r *S3IngestionResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() || r.client == nil {
+		return
+	}
+	var plan S3IngestionModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	var diags diag.Diagnostics
+	plan.Organization, plan.Database, diags = integrations.Destination(ctx, req.Config, r.client)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	plan.Project = plan.Database
+	plan.APIURL = types.StringValue(r.client.APIURL)
+	plan.APIKeyHash = types.StringValue(util.HashString(r.client.APIKey))
+	resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
+}
+
 func (r *S3IngestionResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan S3IngestionModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
@@ -60,18 +85,11 @@ func (r *S3IngestionResource) Create(ctx context.Context, req resource.CreateReq
 	format := plan.Format.ValueString()
 	filePattern := plan.FilePattern.ValueString()
 
-	// Resolve org/project: resource attribute takes priority, then provider config.
-	org := r.client.Organization
-	if !plan.Organization.IsNull() && !plan.Organization.IsUnknown() && plan.Organization.ValueString() != "" {
-		org = plan.Organization.ValueString()
-	}
-	project := r.client.Project
-	if !plan.Project.IsNull() && !plan.Project.IsUnknown() && plan.Project.ValueString() != "" {
-		project = plan.Project.ValueString()
-	}
+	org := plan.Organization.ValueString()
+	database := plan.Database.ValueString()
 
 	// Generate unique resource name (S3-safe: lowercase, alphanumeric, hyphens, max 40 chars).
-	resourceName := util.SanitizeResourceName(fmt.Sprintf("%s-%s-%s", org, project, table))
+	resourceName := util.SanitizeResourceName(fmt.Sprintf("%s-%s-%s", org, database, table))
 
 	// Initialize AWS clients.
 	awsCfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
@@ -124,7 +142,7 @@ func (r *S3IngestionResource) Create(ctx context.Context, req resource.CreateReq
 	glueJobName := fmt.Sprintf("rawtree-ingest-%s", resourceName)
 	state.GlueJobName = glueJobName
 
-	ingestEndpoint := buildIngestEndpoint(r.client.APIURL, org, project, table)
+	ingestEndpoint := integrations.TableEndpoint(r.client.APIURL, database, table, nil)
 
 	glueParams := map[string]string{
 		"BUCKET":          bucket,
@@ -212,8 +230,7 @@ func (r *S3IngestionResource) Create(ctx context.Context, req resource.CreateReq
 	plan.ID = types.StringValue(resourceName)
 	plan.APIURL = types.StringValue(r.client.APIURL)
 	plan.APIKeyHash = types.StringValue(util.HashString(r.client.APIKey))
-	plan.Organization = types.StringValue(org)
-	plan.Project = types.StringValue(project)
+
 	plan.GlueJobName = types.StringValue(glueJobName)
 	plan.GlueJobRunID = types.StringValue(runID)
 	plan.LambdaFunctionARN = types.StringValue(lambdaARN)
@@ -263,23 +280,16 @@ func (r *S3IngestionResource) Read(ctx context.Context, req resource.ReadRequest
 		JobName: &state.GlueJobName,
 	})
 	if err != nil {
-		// Resource no longer exists.
+		var missing *gluetypes.EntityNotFoundException
+		if !errors.As(err, &missing) {
+			resp.Diagnostics.AddError("Cannot read Glue job", err.Error())
+			return
+		}
 		resp.State.RemoveResource(ctx)
 		return
 	}
 
-	// Refresh provider-derived values so changes trigger an update.
-	data.APIURL = types.StringValue(r.client.APIURL)
-	data.APIKeyHash = types.StringValue(util.HashString(r.client.APIKey))
-	// Only refresh org/project from provider if not explicitly set in the resource.
-	if data.Organization.IsNull() || data.Organization.ValueString() == "" {
-		data.Organization = types.StringValue(r.client.Organization)
-	}
-	if data.Project.IsNull() || data.Project.ValueString() == "" {
-		data.Project = types.StringValue(r.client.Project)
-	}
-
-	// Preserve private state.
+	// Retain the deployed settings so ModifyPlan can detect destination or key changes.
 	resp.Private.SetKey(ctx, "aws_resources", stateJSON)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -304,7 +314,7 @@ func (r *S3IngestionResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
-	// Only table and file_pattern can be updated in place.
+	// Update the existing job and function without rerunning the initial import.
 	awsCfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(state.Region))
 	if err != nil {
 		resp.Diagnostics.AddError("AWS Configuration Error", err.Error())
@@ -313,17 +323,23 @@ func (r *S3IngestionResource) Update(ctx context.Context, req resource.UpdateReq
 
 	lambdaClient := lambda.NewFromConfig(awsCfg)
 
-	// Resolve org/project: resource attribute takes priority, then provider config.
-	org := r.client.Organization
-	if !plan.Organization.IsNull() && !plan.Organization.IsUnknown() && plan.Organization.ValueString() != "" {
-		org = plan.Organization.ValueString()
-	}
-	project := r.client.Project
-	if !plan.Project.IsNull() && !plan.Project.IsUnknown() && plan.Project.ValueString() != "" {
-		project = plan.Project.ValueString()
-	}
+	database := plan.Database.ValueString()
 
-	ingestEndpoint := buildIngestEndpoint(r.client.APIURL, org, project, plan.Table.ValueString())
+	ingestEndpoint := integrations.TableEndpoint(r.client.APIURL, database, plan.Table.ValueString(), nil)
+
+	// Update the stored Glue job for future runs, without replaying the initial import.
+	if err := uploadGlueScript(ctx, s3.NewFromConfig(awsCfg), state.ScriptBucket, state.ScriptKey); err != nil {
+		resp.Diagnostics.AddError("Failed to update Glue script", err.Error())
+		return
+	}
+	glueParams := map[string]string{
+		"FILE_PATTERN": plan.FilePattern.ValueString(), "API_URL": r.client.APIURL, "API_KEY": r.client.APIKey,
+		"TABLE": plan.Table.ValueString(), "INGEST_ENDPOINT": ingestEndpoint,
+	}
+	if err := updateGlueJobArgs(ctx, glue.NewFromConfig(awsCfg), state.GlueJobName, glueParams); err != nil {
+		resp.Diagnostics.AddError("Failed to update Glue job", err.Error())
+		return
+	}
 
 	// Update Lambda environment variables.
 	envVars := map[string]string{
@@ -349,8 +365,6 @@ func (r *S3IngestionResource) Update(ctx context.Context, req resource.UpdateReq
 	// Update provider-derived values in state.
 	plan.APIURL = types.StringValue(r.client.APIURL)
 	plan.APIKeyHash = types.StringValue(util.HashString(r.client.APIKey))
-	plan.Organization = types.StringValue(org)
-	plan.Project = types.StringValue(project)
 
 	// Preserve private state.
 	resp.Private.SetKey(ctx, "aws_resources", stateJSON)
@@ -442,9 +456,4 @@ func (r *S3IngestionResource) ImportState(ctx context.Context, req resource.Impo
 		"The rawtree_s3_ingestion resource does not support import. "+
 			"Please create the resource using Terraform.",
 	)
-}
-
-// buildIngestEndpoint constructs the full ingest path including org/project routing.
-func buildIngestEndpoint(apiURL, org, project, table string) string {
-	return fmt.Sprintf("%s/v1/%s/%s/tables/%s", apiURL, org, project, table)
 }

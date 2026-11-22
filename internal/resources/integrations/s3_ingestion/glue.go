@@ -5,6 +5,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -70,6 +71,56 @@ func createGlueJob(ctx context.Context, glueClient *glue.Client, jobName, roleAR
 		return fmt.Errorf("creating Glue job: %w", err)
 	}
 	return nil
+}
+
+// Glue replaces the whole job definition on update. Retain its settings and
+// other arguments when changing the destination of future job runs.
+func updateGlueJobArgs(ctx context.Context, c *glue.Client, name string, args map[string]string) error {
+	job, err := c.GetJob(ctx, &glue.GetJobInput{JobName: aws.String(name)})
+	if err != nil {
+		return err
+	}
+	if job.Job == nil {
+		return fmt.Errorf("no Glue job returned for %q", name)
+	}
+	_, err = c.UpdateJob(ctx, &glue.UpdateJobInput{JobName: aws.String(name), JobUpdate: withGlueArgs(job.Job, args)})
+	return err
+}
+
+func withGlueArgs(job *gluetypes.Job, args map[string]string) *gluetypes.JobUpdate {
+	defaults := make(map[string]string, len(job.DefaultArguments)+len(args))
+	maps.Copy(defaults, job.DefaultArguments)
+	for k, v := range args {
+		defaults["--"+k] = v
+	}
+	update := &gluetypes.JobUpdate{
+		DefaultArguments:          defaults,
+		Command:                   job.Command,
+		Connections:               job.Connections,
+		CodeGenConfigurationNodes: job.CodeGenConfigurationNodes,
+		Description:               job.Description,
+		ExecutionClass:            job.ExecutionClass,
+		ExecutionProperty:         job.ExecutionProperty,
+		GlueVersion:               job.GlueVersion,
+		JobMode:                   job.JobMode,
+		JobRunQueuingEnabled:      job.JobRunQueuingEnabled,
+		LogUri:                    job.LogUri,
+		MaintenanceWindow:         job.MaintenanceWindow,
+		MaxRetries:                job.MaxRetries,
+		NonOverridableArguments:   job.NonOverridableArguments,
+		NotificationProperty:      job.NotificationProperty,
+		Role:                      job.Role,
+		SecurityConfiguration:     job.SecurityConfiguration,
+		SourceControlDetails:      job.SourceControlDetails,
+		Timeout:                   job.Timeout,
+	}
+	switch {
+	case job.WorkerType != "":
+		update.WorkerType, update.NumberOfWorkers = job.WorkerType, job.NumberOfWorkers
+	default:
+		update.MaxCapacity = job.MaxCapacity
+	}
+	return update
 }
 
 // startGlueJobRun triggers a one-time run of the Glue job.

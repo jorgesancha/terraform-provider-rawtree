@@ -74,16 +74,18 @@ Specify the organization and cluster on the database resource. Its [example](exa
 For ingestion integrations, the provider resolves settings in this order:
 
 1. Provider configuration block
-2. Environment variables (`RAWTREE_API_KEY`, `RAWTREE_URL`, `RAWTREE_ORG`, `RAWTREE_PROJECT`)
+2. Environment variables (`RAWTREE_API_KEY`, `RAWTREE_URL`, `RAWTREE_ORG`, `RAWTREE_DATABASE`)
 3. Rawtree CLI config file (`~/.config/rtree/config.json` — created by `rtree login`)
 
 ```hcl
 provider "rawtree" {
   api_key      = var.rawtree_api_key    # or set RAWTREE_API_KEY
   organization = "my-org"               # or set RAWTREE_ORG
-  project      = "my-project"           # or set RAWTREE_PROJECT
+  database     = "my_database"          # or set RAWTREE_DATABASE
 }
 ```
+
+Existing configurations can keep the deprecated `project` alias or `RAWTREE_PROJECT`. The integration uses the ingestion key to select the organization and cluster. Apply the in-place endpoint updates when upgrading an existing deployment.
 
 ## Quick Start
 
@@ -176,10 +178,10 @@ Glue, Lambda, EventBridge, and S3 permissions. See [`docs/resources/s3_ingestion
   "Sid": "S3Ingestion",
   "Effect": "Allow",
   "Action": [
-    "glue:CreateJob", "glue:DeleteJob", "glue:GetJob", "glue:GetJobRun",
+    "glue:CreateJob", "glue:UpdateJob", "glue:DeleteJob", "glue:GetJob", "glue:GetJobRun",
     "glue:GetJobRuns", "glue:StartJobRun", "glue:BatchStopJobRun",
     "lambda:CreateFunction", "lambda:DeleteFunction", "lambda:GetFunction",
-    "lambda:UpdateFunctionConfiguration", "lambda:AddPermission",
+    "lambda:GetFunctionConfiguration", "lambda:UpdateFunctionCode", "lambda:UpdateFunctionConfiguration", "lambda:AddPermission",
     "events:PutRule", "events:DeleteRule", "events:DescribeRule",
     "events:PutTargets", "events:RemoveTargets",
     "s3:PutObject", "s3:GetObject", "s3:DeleteObject", "s3:HeadObject",

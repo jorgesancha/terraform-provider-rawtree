@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -38,8 +39,8 @@ func testAccPreCheck(t *testing.T) {
 	if v := os.Getenv("RAWTREE_ORG"); v == "" {
 		t.Fatal("RAWTREE_ORG must be set for acceptance tests")
 	}
-	if v := os.Getenv("RAWTREE_PROJECT"); v == "" {
-		t.Fatal("RAWTREE_PROJECT must be set for acceptance tests")
+	if v := os.Getenv("RAWTREE_DATABASE"); v == "" {
+		t.Fatal("RAWTREE_DATABASE must be set for acceptance tests")
 	}
 	if v := os.Getenv("RAWTREE_TEST_CF_DISTRIBUTION_ID"); v == "" {
 		t.Fatal("RAWTREE_TEST_CF_DISTRIBUTION_ID must be set for acceptance tests (an existing CloudFront distribution ID)")
@@ -447,8 +448,8 @@ func testAccPreCheckE2E(t *testing.T) {
 	if v := os.Getenv("RAWTREE_ORG"); v == "" {
 		t.Fatal("RAWTREE_ORG must be set for acceptance tests")
 	}
-	if v := os.Getenv("RAWTREE_PROJECT"); v == "" {
-		t.Fatal("RAWTREE_PROJECT must be set for acceptance tests")
+	if v := os.Getenv("RAWTREE_DATABASE"); v == "" {
+		t.Fatal("RAWTREE_DATABASE must be set for acceptance tests")
 	}
 }
 
@@ -543,11 +544,10 @@ func testAccWaitForRawtreeData(tableName string, minRows int, timeout time.Durat
 		apiURL = "https://api.us-east-1.aws.rawtree.dev"
 	}
 	apiKey := os.Getenv("RAWTREE_API_KEY")
-	org := os.Getenv("RAWTREE_ORG")
-	project := os.Getenv("RAWTREE_PROJECT")
+	project := os.Getenv("RAWTREE_DATABASE")
 
 	deadline := time.Now().Add(timeout)
-	queryURL := fmt.Sprintf("%s/v1/%s/%s/query", apiURL, org, project)
+	queryURL := fmt.Sprintf("%s/v1/query?database=%s", apiURL, url.QueryEscape(project))
 	query := fmt.Sprintf(`SELECT count() as cnt FROM %s`, tableName)
 	body := fmt.Sprintf(`{"sql":%q}`, query)
 

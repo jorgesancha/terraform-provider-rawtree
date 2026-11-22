@@ -22,9 +22,10 @@ type WafIngestionModel struct {
 	APIURL       types.String `tfsdk:"api_url"`
 	APIKeyHash   types.String `tfsdk:"api_key_hash"`
 	Organization types.String `tfsdk:"organization"`
+	Database     types.String `tfsdk:"database"`
 	Project      types.String `tfsdk:"project"`
 
-	// Full Firehose HTTP endpoint URL (derived from api_url + org + project + table).
+	// Full Firehose HTTP endpoint URL (derived from the API origin, database, and table).
 	EndpointURL types.String `tfsdk:"endpoint_url"`
 
 	// Computed attributes.

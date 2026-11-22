@@ -122,25 +122,20 @@ def ingest_key(key):
 
     endpoint = ingest_endpoint if ingest_endpoint else f"{api_url}/v1/tables/{table}"
     params = urllib.parse.urlencode({"url": presigned_url})
-    url = f"{endpoint}?{params}"
+    separator = "&" if "?" in endpoint else "?"
+    url = f"{endpoint}{separator}{params}"
 
     req = urllib.request.Request(url, method="POST")
     req.add_header("Authorization", f"Bearer {api_key}")
 
     try:
         with urllib.request.urlopen(req, timeout=300) as response:
-            # Rawtree returns an NDJSON event stream (started, progress, done/error).
-            last_event = None
-            for line in response.read().decode().splitlines():
-                line = line.strip()
-                if not line:
-                    continue
-                last_event = json.loads(line)
-                if last_event.get("type") == "error":
-                    raise RuntimeError(f"API error: {last_event}")
+            result = json.load(response)
+            if not isinstance(result.get("inserted"), int):
+                raise RuntimeError("RawTree did not confirm how many rows were inserted")
         with lock:
             total += 1
-        print(f"OK: {key} -> {last_event}")
+        print(f"OK: {key} -> {result}")
         return key, True
     except urllib.error.HTTPError as e:
         body = e.read().decode()
