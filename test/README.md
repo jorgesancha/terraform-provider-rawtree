@@ -29,6 +29,14 @@ TF_ACC=1 go test -count=1 -v -run '^TestAccDatabase$' ./internal/resources/platf
 
 To stop the local stack, run `bash scripts/codex/run-local-compose.sh 8082 stop` from the same platform worktree.
 
+## Tinybird RawTree workflow
+
+Use the local stack and the same four variables as the database test. The cluster needs the workflow service enabled. This test creates a manual workflow in `default`, changes its SQL, pauses its schedule, imports it, reorders HTTP and table destinations, and verifies deletion. The test never triggers a delivery.
+
+```sh
+TF_ACC=1 go test -count=1 -v -run '^TestAccWorkflow$' ./internal/resources/platform/workflow/
+```
+
 ## Upgrade from v0.1.0
 
 Run `bash test/upgrade/plan.sh` from the provider repository. It builds the current provider and checks that both `database` and the deprecated `project` configuration migrate a synthetic v0.1.0 WAF destination in place, keeping its resource ID.

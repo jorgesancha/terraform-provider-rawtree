@@ -6,6 +6,8 @@ Use Terraform to manage Tinybird RawTree databases and external ingestion pipeli
 
 [`rawtree_database`](docs/resources/database.md) manages a named database in an existing cluster. Use the [database list resource](docs/list-resources/database.md) to generate Terraform configuration for the databases already there.
 
+[`rawtree_workflow`](docs/resources/workflow.md) manages a SQL workflow and its schedule. The [workflow list resource](docs/list-resources/workflow.md) generates configuration for existing workflows.
+
 ## Integrations
 
 | Resource | Description | Docs |

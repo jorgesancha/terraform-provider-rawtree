@@ -44,7 +44,7 @@ func TestProviderHasResources(t *testing.T) {
 		t.Fatalf("failed to get provider schema: %s", err)
 	}
 
-	for _, name := range []string{"rawtree_database", "rawtree_s3_ingestion", "rawtree_waf_ingestion", "rawtree_cloudfront_ingestion", "rawtree_supabase_cdc_ingestion"} {
+	for _, name := range []string{"rawtree_database", "rawtree_workflow", "rawtree_s3_ingestion", "rawtree_waf_ingestion", "rawtree_cloudfront_ingestion", "rawtree_supabase_cdc_ingestion"} {
 		if _, ok := resp.ResourceSchemas[name]; !ok {
 			t.Errorf("expected %s resource to be registered", name)
 		}

@@ -1,42 +1,14 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"slices"
 	"strings"
-	"time"
 )
-
-// Clients keeps the platform credential separate from credentials deployed to AWS.
-type Clients struct {
-	Platform     *PlatformClient
-	Integrations *RawtreeClient
-}
-
-type PlatformClient struct {
-	baseURL string
-	token   string
-	http    *http.Client
-}
-
-func NewPlatformClient(baseURL, token string) *PlatformClient {
-	return &PlatformClient{
-		baseURL: strings.TrimRight(baseURL, "/"),
-		token:   token,
-		http: &http.Client{
-			Timeout: 60 * time.Second,
-			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
-		},
-	}
-}
 
 // Database identifies a database within its organization and cluster.
 type Database struct {
@@ -110,25 +82,5 @@ func (c *PlatformClient) databaseRequest(ctx context.Context, db Database, metho
 		endpoint += "/" + url.PathEscape(db.Name)
 	}
 	scope := url.Values{"organization": {db.Organization}, "cluster": {db.Cluster}}
-	req, err := http.NewRequestWithContext(ctx, method, endpoint+"?"+scope.Encode(), bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
-	req.Header.Set("User-Agent", "terraform-provider-rawtree")
-	req.Header.Set("Accept", "application/json")
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		var problem struct{ Message string }
-		_ = json.NewDecoder(io.LimitReader(resp.Body, 8192)).Decode(&problem)
-		return fmt.Errorf("request to Tinybird RawTree %s %s returned HTTP %d: %s", method, req.URL.Path, resp.StatusCode, problem.Message)
-	}
-	return json.NewDecoder(resp.Body).Decode(result)
+	return c.platformRequest(ctx, method, endpoint, scope, body, http.StatusOK, result)
 }

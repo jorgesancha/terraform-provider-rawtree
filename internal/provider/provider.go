@@ -24,6 +24,7 @@ import (
 	"github.com/rawtreedb/terraform-provider-rawtree/internal/resources/integrations/supabase_cdc_ingestion"
 	"github.com/rawtreedb/terraform-provider-rawtree/internal/resources/integrations/waf_ingestion"
 	"github.com/rawtreedb/terraform-provider-rawtree/internal/resources/platform/database"
+	"github.com/rawtreedb/terraform-provider-rawtree/internal/resources/platform/workflow"
 )
 
 const (
@@ -139,6 +140,7 @@ func (p *RawtreeProvider) Configure(ctx context.Context, req provider.ConfigureR
 func (p *RawtreeProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		database.NewResource,
+		workflow.NewResource,
 		cloudfront_ingestion.NewResource,
 		s3_ingestion.NewResource,
 		supabase_cdc_ingestion.NewResource,
@@ -147,7 +149,7 @@ func (p *RawtreeProvider) Resources(_ context.Context) []func() resource.Resourc
 }
 
 func (p *RawtreeProvider) ListResources(_ context.Context) []func() list.ListResource {
-	return []func() list.ListResource{database.NewListResource}
+	return []func() list.ListResource{database.NewListResource, workflow.NewListResource}
 }
 
 func (p *RawtreeProvider) DataSources(_ context.Context) []func() datasource.DataSource {
