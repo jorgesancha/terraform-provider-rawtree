@@ -4,14 +4,30 @@ This directory contains everything needed to run acceptance tests for the Rawtre
 
 ## RawTree database
 
-The database test uses the RawTree API and Terraform 1.5 or later for import blocks. Start a local RawTree stack and export `RAWTREE_URL`, `RAWTREE_MANAGEMENT_TOKEN`, `RAWTREE_TEST_ORGANIZATION`, and `RAWTREE_TEST_CLUSTER` for that stack.
-Run this command from the repository root.
+The database test requires Terraform 1.5 or later for import blocks. It creates a uniquely named database and deletes it after checking the plan and both forms of import.
+
+If you have a `rawtree-platform` checkout, run its Compose launcher from a fresh worktree. This gives the test its own Docker volumes. Choose an available port.
+
+```sh
+RAWTREE_LOCAL_DEFAULT_DATABASE_MODE=skip bash scripts/codex/run-local-compose.sh 8082
+```
+
+Set the following variables in the shell where you run the provider tests. The launcher writes the bootstrap values to the platform worktree's `.env.local`.
+
+| Provider test variable | Value for this local stack |
+| --- | --- |
+| `RAWTREE_URL` | `http://localhost:8082` |
+| `RAWTREE_MANAGEMENT_TOKEN` | `RAWTREE_LOCAL_BOOTSTRAP_SESSION_TOKEN` |
+| `RAWTREE_TEST_ORGANIZATION` | `RAWTREE_LOCAL_BOOTSTRAP_ORGANIZATION` |
+| `RAWTREE_TEST_CLUSTER` | `RAWTREE_LOCAL_BOOTSTRAP_CLUSTER` |
+
+Run the test from the provider repository.
 
 ```sh
 TF_ACC=1 go test -count=1 -v -run '^TestAccDatabase$' ./internal/resources/platform/database/
 ```
 
-The test creates a unique database, checks the plan, imports the database, and destroys it.
+To stop the local stack, run `bash scripts/codex/run-local-compose.sh 8082 stop` from the same platform worktree.
 
 ## Upgrade from v0.1.0
 
@@ -22,7 +38,7 @@ The check skips AWS refresh and uses a temporary Terraform configuration.
 
 - AWS credentials configured (`aws configure` or env vars)
 - Rawtree account with an API key
-- Go 1.22+, Terraform 1.0+
+- Go 1.26.1+, Terraform 1.0+
 
 ## 1. Create the test infrastructure
 

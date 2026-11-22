@@ -8,8 +8,8 @@ Thank you for your interest in contributing! This document provides guidelines f
 
 - [Go](https://golang.org/doc/install) >= 1.26
 - [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.0
-- AWS credentials for running acceptance tests
-- A Rawtree account for running acceptance tests
+- AWS credentials for the ingestion acceptance tests
+- A RawTree account or a local RawTree stack for acceptance tests. See the [acceptance test setup](test/README.md).
 
 ### Setting Up Your Development Environment
 
