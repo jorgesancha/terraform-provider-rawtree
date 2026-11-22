@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -69,5 +70,30 @@ func TestImportDatabaseIdentity(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestImportDiscoveredIdentity(t *testing.T) {
+	ctx := t.Context()
+	var r databaseResource
+	var schema resource.SchemaResponse
+	var ids resource.IdentitySchemaResponse
+	r.Schema(ctx, resource.SchemaRequest{}, &schema)
+	r.IdentitySchema(ctx, resource.IdentitySchemaRequest{}, &ids)
+	identity := &tfsdk.ResourceIdentity{Schema: ids.IdentitySchema}
+	id := "org/cluster/events"
+	if diags := identity.Set(ctx, struct {
+		ID string `tfsdk:"id"`
+	}{ID: id}); diags.HasError() {
+		t.Fatal(diags)
+	}
+	resp := resource.ImportStateResponse{State: tfsdk.State{Schema: schema.Schema}, Identity: identity}
+	r.ImportState(ctx, resource.ImportStateRequest{Identity: identity}, &resp)
+	var state databaseModel
+	var imported types.String
+	resp.Diagnostics.Append(resp.State.Get(ctx, &state)...)
+	resp.Diagnostics.Append(resp.Identity.GetAttribute(ctx, path.Root("id"), &imported)...)
+	if resp.Diagnostics.HasError() || state.database().ID() != id || state.ID.ValueString() != id || !state.ID.Equal(imported) {
+		t.Fatalf("unexpected imported state %#v, identity %s, diagnostics %v", state, imported, resp.Diagnostics)
 	}
 }

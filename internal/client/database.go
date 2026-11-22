@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 )
@@ -49,24 +50,29 @@ func (d Database) ID() string {
 }
 
 func (c *PlatformClient) DatabaseExists(ctx context.Context, db Database) (bool, error) {
+	names, err := c.ListDatabases(ctx, db.Organization, db.Cluster)
+	return slices.Contains(names, db.Name), err
+}
+
+func (c *PlatformClient) ListDatabases(ctx context.Context, organization, cluster string) ([]string, error) {
 	var result struct {
 		Databases []struct{ Name string } `json:"databases"`
 	}
-	if err := c.databaseRequest(ctx, db, http.MethodGet, nil, &result); err != nil {
-		return false, err
+	scope := Database{Organization: organization, Cluster: cluster}
+	if err := c.databaseRequest(ctx, scope, http.MethodGet, nil, &result); err != nil {
+		return nil, err
 	}
 	if result.Databases == nil {
-		return false, fmt.Errorf("RawTree returned an incomplete database list")
+		return nil, fmt.Errorf("RawTree returned an incomplete database list")
 	}
+	names := make([]string, 0, len(result.Databases))
 	for _, item := range result.Databases {
 		if item.Name == "" {
-			return false, fmt.Errorf("RawTree returned a database without a name")
+			return nil, fmt.Errorf("RawTree returned a database without a name")
 		}
-		if item.Name == db.Name {
-			return true, nil
-		}
+		names = append(names, item.Name)
 	}
-	return false, nil
+	return names, nil
 }
 
 func (c *PlatformClient) CreateDatabase(ctx context.Context, db Database) error {

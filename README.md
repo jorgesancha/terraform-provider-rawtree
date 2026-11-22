@@ -4,7 +4,7 @@ Use Terraform to manage RawTree databases and external ingestion pipelines.
 
 ## RawTree
 
-[`rawtree_database`](docs/resources/database.md) manages a named database in an existing cluster.
+[`rawtree_database`](docs/resources/database.md) manages a named database in an existing cluster. Use the [database list resource](docs/list-resources/database.md) to generate Terraform configuration for the databases already there.
 
 ## Integrations
 

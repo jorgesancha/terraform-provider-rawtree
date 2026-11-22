@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/list"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -26,7 +27,7 @@ const (
 	cliConfigPath = ".config/rtree/config.json"
 )
 
-var _ provider.Provider = &RawtreeProvider{}
+var _ provider.ProviderWithListResources = &RawtreeProvider{}
 
 type RawtreeProvider struct {
 	version string
@@ -122,6 +123,7 @@ func (p *RawtreeProvider) Configure(ctx context.Context, req provider.ConfigureR
 
 	resp.DataSourceData = c
 	resp.ResourceData = c
+	resp.ListResourceData = c
 }
 
 func (p *RawtreeProvider) Resources(_ context.Context) []func() resource.Resource {
@@ -132,6 +134,10 @@ func (p *RawtreeProvider) Resources(_ context.Context) []func() resource.Resourc
 		supabase_cdc_ingestion.NewResource,
 		waf_ingestion.NewResource,
 	}
+}
+
+func (p *RawtreeProvider) ListResources(_ context.Context) []func() list.ListResource {
+	return []func() list.ListResource{database.NewListResource}
 }
 
 func (p *RawtreeProvider) DataSources(_ context.Context) []func() datasource.DataSource {

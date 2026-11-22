@@ -42,3 +42,5 @@ terraform import rawtree_database.analytics acme/production/analytics
 ```
 
 Give each database one Terraform owner. The RawTree create endpoint accepts repeated requests for the same name.
+
+To discover databases in an existing cluster and generate their configuration together, use the [database list resource](../list-resources/database.md).
