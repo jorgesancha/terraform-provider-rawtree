@@ -1,13 +1,13 @@
 """
-Rawtree S3 Event Ingestion - AWS Lambda Handler
+Tinybird RawTree S3 Event Ingestion - AWS Lambda Handler
 
 Triggered by EventBridge on S3 ObjectCreated events. Generates a presigned
-URL for the new object and sends it to the Rawtree API for direct ingestion.
+URL for the new object and sends it to the Tinybird RawTree API for direct ingestion.
 
 Environment variables:
-  API_URL: Rawtree API base URL
-  API_KEY: Rawtree API key
-  TABLE: Rawtree table name
+  API_URL: Tinybird RawTree API base URL
+  API_KEY: Tinybird RawTree API key
+  TABLE: Tinybird RawTree table name
   FORMAT: Expected file format (json, csv, parquet)
   FILE_PATTERN: Optional regex pattern for filtering keys
   PREFIX: Optional S3 key prefix filter
@@ -77,7 +77,7 @@ def handler(event, context):
         ExpiresIn=3600,
     )
 
-    # Send to Rawtree API.
+    # Send to Tinybird RawTree API.
     endpoint = INGEST_ENDPOINT if INGEST_ENDPOINT else f"{API_URL}/v1/tables/{TABLE}"
     params = urllib.parse.urlencode({"url": presigned_url})
     separator = "&" if "?" in endpoint else "?"
@@ -90,7 +90,7 @@ def handler(event, context):
         with urllib.request.urlopen(req, timeout=300) as response:
             result = json.load(response)
             if not isinstance(result.get("inserted"), int):
-                raise RuntimeError("RawTree did not confirm how many rows were inserted")
+                raise RuntimeError("Tinybird RawTree did not confirm how many rows were inserted")
             print(f"Ingested s3://{bucket}/{key}: {result}")
             return {"status": "ingested", "key": key, "result": result}
     except urllib.error.HTTPError as e:

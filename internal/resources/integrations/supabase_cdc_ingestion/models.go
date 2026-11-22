@@ -59,7 +59,7 @@ type awsResourceState struct {
 	ExecutionRoleName    string `json:"execution_role_name"`
 	ExecutionPolicyARN   string `json:"execution_policy_arn"`
 	LogGroupName         string `json:"log_group_name"`
-	// ConfigSecretARN is the managed secret holding the Rawtree API key plus
+	// ConfigSecretARN is the managed secret holding the Tinybird RawTree API key plus
 	// any inline DATABASE_URL / POSTGRES_TLS_ROOT_CERT_PEM as JSON keys.
 	ConfigSecretARN  string `json:"config_secret_arn"`
 	ConfigSecretName string `json:"config_secret_name"`

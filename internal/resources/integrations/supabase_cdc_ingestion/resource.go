@@ -134,7 +134,7 @@ func (r *SupabaseCDCIngestionResource) Create(ctx context.Context, req resource.
 	}
 	configSecretARN, err := util.CreateSecret(
 		ctx, secretsClient, names.ConfigSecretName,
-		"Rawtree managed config (API key + optional Supabase URL/CA) for Supabase CDC ingestion",
+		"Tinybird RawTree managed config (API key + optional Supabase URL/CA) for Supabase CDC ingestion",
 		configJSON,
 	)
 	if err != nil {

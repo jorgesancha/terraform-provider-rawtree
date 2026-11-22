@@ -1,11 +1,11 @@
 ---
-page_title: "RawTree Provider"
-description: Manage RawTree resources and external ingestion integrations.
+page_title: "Tinybird RawTree Provider"
+description: Manage Tinybird RawTree resources and external ingestion integrations.
 ---
 
-# RawTree Provider
+# Tinybird RawTree Provider
 
-Manage named databases in existing RawTree clusters. The provider also configures ingestion from S3, WAF, CloudFront, and Supabase.
+Manage named databases in existing Tinybird RawTree clusters. The provider also configures ingestion from S3, WAF, CloudFront, and Supabase.
 
 ## Authentication
 

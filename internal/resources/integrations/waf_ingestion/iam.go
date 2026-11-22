@@ -27,7 +27,7 @@ func createFirehoseRole(ctx context.Context, client *iam.Client, resourceName, b
 	}
 
 	roleARN, err = util.CreateRole(ctx, client, roleName,
-		"Rawtree Terraform provider - Firehose role for WAF log ingestion", trustPolicy)
+		"Tinybird RawTree Terraform provider - Firehose role for WAF log ingestion", trustPolicy)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -66,7 +66,7 @@ func createFirehoseRole(ctx context.Context, client *iam.Client, resourceName, b
 
 	policyName := fmt.Sprintf("rawtree-firehose-%s", resourceName)
 	policyARN, err = util.CreateAndAttachPolicy(ctx, client, policyName, roleName,
-		"S3 backup and CloudWatch Logs access for Rawtree WAF Firehose", policyDoc)
+		"S3 backup and CloudWatch Logs access for Tinybird RawTree WAF Firehose", policyDoc)
 	if err != nil {
 		return "", "", "", err
 	}

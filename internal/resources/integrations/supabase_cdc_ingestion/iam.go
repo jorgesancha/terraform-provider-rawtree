@@ -27,7 +27,7 @@ func createExecutionRole(ctx context.Context, client *iam.Client, resourceName s
 	}
 
 	roleARN, err = util.CreateRole(ctx, client, roleName,
-		"Rawtree Terraform provider - ECS execution role for Supabase CDC ingestion", trustPolicy)
+		"Tinybird RawTree Terraform provider - ECS execution role for Supabase CDC ingestion", trustPolicy)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -51,7 +51,7 @@ func createExecutionRole(ctx context.Context, client *iam.Client, resourceName s
 
 	policyName := fmt.Sprintf("rawtree-ecs-secrets-%s", resourceName)
 	policyARN, err = util.CreateAndAttachPolicy(ctx, client, policyName, roleName,
-		"Secrets Manager access for Rawtree Supabase CDC ECS task", policyDoc)
+		"Secrets Manager access for Tinybird RawTree Supabase CDC ECS task", policyDoc)
 	if err != nil {
 		return "", "", "", err
 	}

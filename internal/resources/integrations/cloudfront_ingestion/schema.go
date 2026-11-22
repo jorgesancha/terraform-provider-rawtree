@@ -131,9 +131,9 @@ func resourceSchema() schema.Schema {
 	defaultList := defaultFieldsListValue()
 
 	return schema.Schema{
-		Description: "Manages real-time CloudFront log ingestion into Rawtree. Creates a Kinesis Data Stream, " +
+		Description: "Manages real-time CloudFront log ingestion into Tinybird RawTree. Creates a Kinesis Data Stream, " +
 			"Kinesis Data Firehose delivery stream with HTTP endpoint destination, and a CloudFront real-time " +
-			"log configuration to stream CloudFront access logs to Rawtree, with S3 backup for failed deliveries.",
+			"log configuration to stream CloudFront access logs to Tinybird RawTree, with S3 backup for failed deliveries.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed:    true,
@@ -144,7 +144,7 @@ func resourceSchema() schema.Schema {
 			},
 			"table": schema.StringAttribute{
 				Required:    true,
-				Description: "The Rawtree table name to ingest CloudFront logs into. Will be auto-created on first insert.",
+				Description: "The Tinybird RawTree table name to ingest CloudFront logs into. Will be auto-created on first insert.",
 			},
 			"distribution_id": schema.StringAttribute{
 				Required:    true,
@@ -210,23 +210,23 @@ func resourceSchema() schema.Schema {
 			"organization": schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
-				Description: "The Rawtree organization. Defaults to the provider-level organization.",
+				Description: "The Tinybird RawTree organization. Defaults to the provider-level organization.",
 			},
 			"database": schema.StringAttribute{
 				Optional: true, Computed: true,
 				Validators:  []validator.String{stringvalidator.ConflictsWith(path.MatchRoot("project"))},
-				Description: "RawTree destination database. Defaults to the provider database.",
+				Description: "Tinybird RawTree destination database. Defaults to the provider database.",
 			},
 			"project": schema.StringAttribute{
 				DeprecationMessage: "Use database instead.",
 				Optional:           true,
 				Computed:           true,
-				Description:        "Deprecated alias for the RawTree destination database.",
+				Description:        "Deprecated alias for the Tinybird RawTree destination database.",
 			},
 
 			"api_url": schema.StringAttribute{
 				Computed:    true,
-				Description: "The Rawtree API URL (from provider config).",
+				Description: "The Tinybird RawTree API URL (from provider config).",
 			},
 			"api_key_hash": schema.StringAttribute{
 				Computed:    true,

@@ -71,28 +71,28 @@ func (p *RawtreeProvider) Metadata(_ context.Context, _ provider.MetadataRequest
 
 func (p *RawtreeProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manage RawTree resources and external ingestion integrations.",
+		Description: "Manage Tinybird RawTree resources and external ingestion integrations.",
 		Attributes: map[string]schema.Attribute{
 			"management_token": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
-				Description: "Bearer credential for native RawTree resources. Can also be set with RAWTREE_MANAGEMENT_TOKEN. Integrations use their own API key.",
+				Description: "Bearer credential for native Tinybird RawTree resources. Can also be set with RAWTREE_MANAGEMENT_TOKEN. Integrations use their own API key.",
 			},
 			"api_key": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
-				Description: "API key for ingestion integrations and a fallback for native resources. Set it with RAWTREE_API_KEY or the RawTree CLI configuration.",
+				Description: "API key for ingestion integrations and a fallback for native resources. Set it with RAWTREE_API_KEY or the Tinybird RawTree CLI configuration.",
 			},
 			"api_url": schema.StringAttribute{
 				Optional:    true,
-				Description: "RawTree API origin. Defaults to https://api.rawtree.com. Can also be set with RAWTREE_URL.",
+				Description: "Tinybird RawTree API origin. Defaults to https://api.rawtree.com. Can also be set with RAWTREE_URL.",
 			},
 			"organization": schema.StringAttribute{
 				Optional:    true,
-				Description: "Default RawTree organization used to name integration infrastructure. The ingestion key selects the organization and cluster for API requests. Can also be set with RAWTREE_ORG.",
+				Description: "Default Tinybird RawTree organization used to name integration infrastructure. The ingestion key selects the organization and cluster for API requests. Can also be set with RAWTREE_ORG.",
 			},
 			"database": schema.StringAttribute{
-				Optional: true, Description: "Default RawTree destination database for ingestion integrations. Can also be set with RAWTREE_DATABASE.",
+				Optional: true, Description: "Default Tinybird RawTree destination database for ingestion integrations. Can also be set with RAWTREE_DATABASE.",
 				Validators: []validator.String{stringvalidator.ConflictsWith(path.MatchRoot("project"))},
 			},
 			"project": schema.StringAttribute{
@@ -123,7 +123,7 @@ func (p *RawtreeProvider) Configure(ctx context.Context, req provider.ConfigureR
 		apiURL = defaultAPIURL
 	}
 	if managementToken == "" {
-		resp.Diagnostics.AddError("Missing RawTree credential", "Set management_token or RAWTREE_MANAGEMENT_TOKEN for native resources, or configure an API key.")
+		resp.Diagnostics.AddError("Missing Tinybird RawTree credential", "Set management_token or RAWTREE_MANAGEMENT_TOKEN for native resources, or configure an API key.")
 		return
 	}
 	c := &client.Clients{

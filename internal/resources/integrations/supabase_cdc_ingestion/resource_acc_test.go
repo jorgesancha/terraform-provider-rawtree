@@ -548,7 +548,7 @@ func splitCSV(s string) []string {
 // hand-tuned for those columns, so the docs and the test must stay in sync.
 //
 // Verification uses a baseline + delta row count: the test reads the
-// current Rawtree row count, inserts numRows new rows into Postgres, and
+// current Tinybird RawTree row count, inserts numRows new rows into Postgres, and
 // polls until the count grows by ≥ numRows. This avoids requiring any
 // marker column on the source table.
 //
@@ -571,7 +571,7 @@ func splitCSV(s string) []string {
 //	    (download from the Supabase dashboard). Required in practice
 //	    because Supabase's CA isn't in Mozilla's bundle.
 //
-//	RAWTREE_E2E_TIMEOUT   how long to wait for rows to appear in Rawtree.
+//	RAWTREE_E2E_TIMEOUT   how long to wait for rows to appear in Tinybird RawTree.
 //	    Default "15m".
 // ---------------------------------------------------------------------------
 
@@ -647,12 +647,12 @@ func TestAccSupabaseCDCIngestion_endToEndData(t *testing.T) {
 }
 
 // testAccCheckSupabaseE2EInsertAndValidate validates the streaming CDC path:
-//  1. Reads the current row count in the Rawtree destination table (baseline).
+//  1. Reads the current row count in the Tinybird RawTree destination table (baseline).
 //     If the destination doesn't exist yet, treats baseline as 0.
 //  2. Inserts numRows synthetic Superstore-Sales rows into Postgres. Row IDs
 //     are picked from a high range to avoid PK conflicts with the imported
 //     dataset (9.8k rows) and with prior test runs.
-//  3. Polls Rawtree until the count grows by ≥ numRows or e2eTimeout expires.
+//  3. Polls Tinybird RawTree until the count grows by ≥ numRows or e2eTimeout expires.
 //
 // Caveat: baseline-delta assumes nothing else is writing to the table during
 // the test. For the prescribed Supabase test project (no live workload) this
@@ -723,7 +723,7 @@ func insertSuperstoreRows(ctx context.Context, pgURL string, baseRowID int, runT
 }
 
 // readRawtreeCount issues a single `SELECT count() FROM <table>` against the
-// Rawtree query API and returns the count.
+// Tinybird RawTree query API and returns the count.
 func readRawtreeCount(ctx context.Context, rawtreeTable string) (int, error) {
 	queryURL, apiKey := rawtreeQueryEndpoint()
 	query := fmt.Sprintf(`SELECT count() AS cnt FROM %s`, quoteIdent(rawtreeTable))
@@ -731,7 +731,7 @@ func readRawtreeCount(ctx context.Context, rawtreeTable string) (int, error) {
 	return queryRawtreeCount(ctx, queryURL, apiKey, body)
 }
 
-// waitForRawtreeRowsDelta polls the Rawtree query API until the table's row
+// waitForRawtreeRowsDelta polls the Tinybird RawTree query API until the table's row
 // count has grown by at least delta from baseline, or the context expires.
 func waitForRawtreeRowsDelta(ctx context.Context, rawtreeTable string, baseline, delta int) error {
 	queryURL, apiKey := rawtreeQueryEndpoint()
@@ -834,7 +834,7 @@ func queryRawtreeCount(ctx context.Context, url, apiKey, body string) (int, erro
 //   - provisions a throwaway dual-stack VPC + public subnet + IGW + routes so
 //     the Fargate task can reach Supabase direct Postgres over IPv6 (Supabase
 //     direct Postgres is typically IPv6-only) and ghcr.io over IPv4 (public
-//     IPv4 is assigned per-task via assign_public_ip = true on the rawtree
+//     IPv4 is assigned per-task via assign_public_ip = true on the Tinybird RawTree
 //     resource);
 //   - opts into running the initialization task so PG connectivity errors
 //     surface during apply instead of in a CloudWatch log nobody reads;

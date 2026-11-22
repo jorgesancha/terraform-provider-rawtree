@@ -65,7 +65,7 @@ func createEventBridgeRule(ctx context.Context, ebClient *eventbridge.Client, ru
 		Name:         aws.String(ruleName),
 		EventPattern: aws.String(string(patternJSON)),
 		State:        ebtypes.RuleStateEnabled,
-		Description:  aws.String("Rawtree S3 ingestion - triggers on new object creation"),
+		Description:  aws.String("Tinybird RawTree S3 ingestion - triggers on new object creation"),
 		Tags: []ebtypes.Tag{
 			{Key: aws.String("managed-by"), Value: aws.String("terraform-provider-rawtree")},
 		},

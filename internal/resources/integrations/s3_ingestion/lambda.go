@@ -61,7 +61,7 @@ func createLambdaFunction(ctx context.Context, client *lambda.Client, functionNa
 		Tags: map[string]string{
 			"managed-by": "terraform-provider-rawtree",
 		},
-		Description: aws.String("Rawtree S3 ingestion - processes new objects via presigned URLs"),
+		Description: aws.String("Tinybird RawTree S3 ingestion - processes new objects via presigned URLs"),
 	})
 	if err != nil {
 		return "", fmt.Errorf("creating Lambda function: %w", err)

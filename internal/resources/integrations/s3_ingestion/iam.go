@@ -26,7 +26,7 @@ func createGlueRole(ctx context.Context, client *iam.Client, resourceName, bucke
 	}
 
 	roleARN, err = util.CreateRole(ctx, client, roleName,
-		"Rawtree Terraform provider - Glue job role for S3 ingestion", trustPolicy)
+		"Tinybird RawTree Terraform provider - Glue job role for S3 ingestion", trustPolicy)
 	if err != nil {
 		return "", "", "", fmt.Errorf("creating Glue IAM role: %w", err)
 	}
@@ -65,7 +65,7 @@ func createGlueRole(ctx context.Context, client *iam.Client, resourceName, bucke
 
 	policyName := fmt.Sprintf("rawtree-glue-s3-%s", resourceName)
 	policyARN, err = util.CreateAndAttachPolicy(ctx, client, policyName, roleName,
-		"S3 read access for Rawtree Glue ingestion job", s3Policy)
+		"S3 read access for Tinybird RawTree Glue ingestion job", s3Policy)
 	if err != nil {
 		return "", "", "", fmt.Errorf("creating S3 policy for Glue: %w", err)
 	}
@@ -92,7 +92,7 @@ func createLambdaRole(ctx context.Context, client *iam.Client, resourceName, buc
 	}
 
 	roleARN, err = util.CreateRole(ctx, client, roleName,
-		"Rawtree Terraform provider - Lambda role for S3 ingestion", trustPolicy)
+		"Tinybird RawTree Terraform provider - Lambda role for S3 ingestion", trustPolicy)
 	if err != nil {
 		return "", "", "", fmt.Errorf("creating Lambda IAM role: %w", err)
 	}
@@ -129,7 +129,7 @@ func createLambdaRole(ctx context.Context, client *iam.Client, resourceName, buc
 
 	policyName := fmt.Sprintf("rawtree-lambda-s3-%s", resourceName)
 	policyARN, err = util.CreateAndAttachPolicy(ctx, client, policyName, roleName,
-		"S3 read access for Rawtree Lambda ingestion function", s3Policy)
+		"S3 read access for Tinybird RawTree Lambda ingestion function", s3Policy)
 	if err != nil {
 		return "", "", "", fmt.Errorf("creating S3 policy for Lambda: %w", err)
 	}

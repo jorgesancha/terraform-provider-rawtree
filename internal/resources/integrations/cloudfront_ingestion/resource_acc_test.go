@@ -551,7 +551,7 @@ func testAccWaitForRawtreeData(tableName string, minRows int, timeout time.Durat
 	query := fmt.Sprintf(`SELECT count() as cnt FROM %s`, tableName)
 	body := fmt.Sprintf(`{"sql":%q}`, query)
 
-	fmt.Printf("[E2E] Polling Rawtree for data (table=%s, need>=%d rows, timeout=%s)\n", tableName, minRows, timeout)
+	fmt.Printf("[E2E] Polling Tinybird RawTree for data (table=%s, need>=%d rows, timeout=%s)\n", tableName, minRows, timeout)
 	fmt.Printf("[E2E] Query URL: %s\n", queryURL)
 
 	attempt := 0

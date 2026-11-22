@@ -1,4 +1,4 @@
-# Contributing to the Rawtree Terraform Provider
+# Contributing to the Tinybird RawTree Terraform Provider
 
 Thank you for your interest in contributing! This document provides guidelines for contributing to this project.
 
@@ -9,7 +9,7 @@ Thank you for your interest in contributing! This document provides guidelines f
 - [Go](https://golang.org/doc/install) >= 1.26
 - [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.0
 - AWS credentials for the ingestion acceptance tests
-- A RawTree account or a local RawTree stack for acceptance tests. See the [acceptance test setup](test/README.md).
+- A Tinybird RawTree account or a local Tinybird RawTree stack for acceptance tests. See the [acceptance test setup](test/README.md).
 
 ### Setting Up Your Development Environment
 
@@ -59,11 +59,11 @@ Then run `make install` and use Terraform normally — it will pick up your loca
 
 ```
 internal/
-├── client/                      # Shared Rawtree API client
+├── client/                      # Shared Tinybird RawTree API client
 ├── provider/                    # Provider configuration and setup
 ├── util/                        # Shared AWS helpers (IAM, S3, naming, tags, …)
 └── resources/
-    ├── platform/database/       # RawTree database lifecycle
+    ├── platform/database/       # Tinybird RawTree database lifecycle
     └── integrations/            # AWS-backed ingestion pipelines
         ├── s3_ingestion/
         ├── waf_ingestion/
@@ -83,7 +83,7 @@ Each resource follows the same pattern: `resource.go` (CRUD), `schema.go` (schem
 
 ### Running Acceptance Tests
 
-Acceptance tests create real AWS resources and require credentials + a Rawtree API key:
+Acceptance tests create real AWS resources and require credentials + a Tinybird RawTree API key:
 
 ```sh
 export RAWTREE_API_KEY=rw_...

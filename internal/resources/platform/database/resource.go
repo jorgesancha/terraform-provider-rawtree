@@ -73,7 +73,7 @@ func (r *databaseResource) IdentitySchema(_ context.Context, _ resource.Identity
 func (r *databaseResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	replace := []planmodifier.String{stringplanmodifier.RequiresReplace()}
 	resp.Schema = schema.Schema{
-		Description: "Manages a named database in an existing RawTree cluster. Removing it deletes its data.",
+		Description: "Manages a named database in an existing Tinybird RawTree cluster. Removing it deletes its data.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{Computed: true, Description: "Database identity in organization/cluster/name format."},
 			"organization": schema.StringAttribute{

@@ -25,7 +25,7 @@ func createCloudFrontRole(ctx context.Context, client *iam.Client, resourceName,
 	}
 
 	roleARN, err = util.CreateRole(ctx, client, roleName,
-		"Rawtree Terraform provider - CloudFront role for real-time log delivery to Kinesis", trustPolicy)
+		"Tinybird RawTree Terraform provider - CloudFront role for real-time log delivery to Kinesis", trustPolicy)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -71,7 +71,7 @@ func createFirehoseRole(ctx context.Context, client *iam.Client, resourceName, k
 	}
 
 	roleARN, err = util.CreateRole(ctx, client, roleName,
-		"Rawtree Terraform provider - Firehose role for CloudFront log ingestion", trustPolicy)
+		"Tinybird RawTree Terraform provider - Firehose role for CloudFront log ingestion", trustPolicy)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -120,7 +120,7 @@ func createFirehoseRole(ctx context.Context, client *iam.Client, resourceName, k
 
 	policyName := fmt.Sprintf("rawtree-cf-firehose-%s", resourceName)
 	policyARN, err = util.CreateAndAttachPolicy(ctx, client, policyName, roleName,
-		"Kinesis read, S3 backup, and CloudWatch access for Rawtree CloudFront Firehose", policyDoc)
+		"Kinesis read, S3 backup, and CloudWatch access for Tinybird RawTree CloudFront Firehose", policyDoc)
 	if err != nil {
 		return "", "", "", err
 	}

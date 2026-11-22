@@ -26,7 +26,7 @@ type ecsSecretRefs struct {
 }
 
 // buildConfigSecretJSON produces the JSON payload stored in the single managed
-// Secrets Manager secret. The Rawtree API key is always included. DATABASE_URL
+// Secrets Manager secret. The Tinybird RawTree API key is always included. DATABASE_URL
 // and POSTGRES_TLS_ROOT_CERT_PEM are included only when the user provided the
 // raw value inline (rather than an external Secrets Manager ARN).
 func buildConfigSecretJSON(cfg resolvedConfig) (string, error) {

@@ -67,7 +67,7 @@ func TestAccS3Ingestion_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet("rawtree_s3_ingestion.test", "glue_job_run_id"),
 					resource.TestCheckResourceAttrSet("rawtree_s3_ingestion.test", "lambda_function_arn"),
 					resource.TestCheckResourceAttrSet("rawtree_s3_ingestion.test", "eventbridge_rule_arn"),
-					// Wait for Glue job to complete and verify data landed in Rawtree.
+					// Wait for Glue job to complete and verify data landed in Tinybird RawTree.
 					testAccCheckGlueJobSucceeded("rawtree_s3_ingestion.test"),
 					testAccCheckRawtreeHasData(tableName, 10), // events.json (5) + logs.jsonl (5)
 				),
@@ -270,7 +270,7 @@ func testAccCheckGlueJobSucceeded(resourceName string) resource.TestCheckFunc {
 	}
 }
 
-// testAccCheckRawtreeHasData queries Rawtree and verifies the table has the expected number of rows.
+// testAccCheckRawtreeHasData queries Tinybird RawTree and verifies the table has the expected number of rows.
 func testAccCheckRawtreeHasData(tableName string, expectedRows int) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		apiURL := os.Getenv("RAWTREE_URL")
@@ -292,14 +292,14 @@ func testAccCheckRawtreeHasData(tableName string, expectedRows int) resource.Tes
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			return fmt.Errorf("querying Rawtree: %w", err)
+			return fmt.Errorf("querying Tinybird RawTree: %w", err)
 		}
 		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != 200 {
 			var buf [1024]byte
 			n, _ := resp.Body.Read(buf[:])
-			return fmt.Errorf("rawtree query returned %d: %s", resp.StatusCode, string(buf[:n]))
+			return fmt.Errorf("Tinybird RawTree query returned %d: %s", resp.StatusCode, string(buf[:n]))
 		}
 
 		var result struct {

@@ -1,8 +1,8 @@
 # Acceptance Test Setup
 
-This directory contains everything needed to run acceptance tests for the Rawtree Terraform provider.
+This directory contains everything needed to run acceptance tests for the Tinybird RawTree Terraform provider.
 
-## RawTree database
+## Tinybird RawTree database
 
 The database test requires Terraform 1.5 or later for import blocks. It creates a uniquely named database and deletes it after checking the plan and both forms of import.
 
@@ -37,7 +37,7 @@ The check skips AWS refresh and uses a temporary Terraform configuration.
 ## Ingestion prerequisites
 
 - AWS credentials configured (`aws configure` or env vars)
-- Rawtree account with an API key
+- Tinybird RawTree account with an API key
 - Go 1.26.1+, Terraform 1.0+
 
 ## 1. Create the test infrastructure
@@ -60,7 +60,7 @@ s3://rawtree-provider-test-<suffix>/
 
 ## 2. Run acceptance tests
 
-Copy the output from `terraform apply` and add your Rawtree credentials:
+Copy the output from `terraform apply` and add your Tinybird RawTree credentials:
 
 ```sh
 # From terraform output
@@ -69,7 +69,7 @@ export RAWTREE_TEST_WAF_WEB_ACL_ARN="arn:aws:wafv2:..."
 export RAWTREE_TEST_CF_DISTRIBUTION_ID="E23M245BXXXXXX"
 export AWS_REGION="us-east-1"
 
-# Your Rawtree credentials
+# Your Tinybird RawTree credentials
 export RAWTREE_API_KEY="rw_..."
 export RAWTREE_ORG="my-org"
 export RAWTREE_DATABASE="my_database"
@@ -105,7 +105,7 @@ TF_ACC=1 go test -v -timeout 30m ./internal/resources/integrations/supabase_cdc_
 #   This test exercises the full pipeline against the canonical Superstore
 #   Sales dataset: it provisions its own dual-stack VPC + IPv6 subnet + IGW,
 #   creates the rawtree_supabase_cdc_ingestion resource, inserts rows into
-#   the source table, and polls Rawtree until they arrive. The schema is
+#   the source table, and polls Tinybird RawTree until they arrive. The schema is
 #   hard-coded — full setup walkthrough (create Supabase project, import the
 #   CSV, set env vars) is in test/supabase/README.md.
 TF_ACC=1 go test -v -timeout 30m \
@@ -116,8 +116,8 @@ TF_ACC=1 go test -v -timeout 30m \
 ## 3. Firehose Transform Stub
 
 The `firehose-stub/` directory contains a local HTTP server that implements the
-Rawtree `?transform=firehose` endpoint and a minimal query endpoint. Use this
-when the real Rawtree Firehose transform endpoint is not yet available, or for
+Tinybird RawTree `?transform=firehose` endpoint and a minimal query endpoint. Use this
+when the real Tinybird RawTree Firehose transform endpoint is not yet available, or for
 local development and debugging.
 
 ### What it does
@@ -183,11 +183,11 @@ curl http://localhost:9876/debug/records
 ## 4. Running individual E2E tests
 
 Each resource package includes an end-to-end test that provisions real infrastructure,
-generates traffic, and validates data arrives in Rawtree. These run as part of the
+generates traffic, and validates data arrives in Tinybird RawTree. These run as part of the
 full suite above, but you can target them individually:
 
 ```sh
-# WAF E2E only (~9 min — creates Firehose, generates WAF traffic, queries Rawtree)
+# WAF E2E only (~9 min — creates Firehose, generates WAF traffic, queries Tinybird RawTree)
 TF_ACC=1 go test -v -timeout 45m -run TestAccWafIngestion_endToEndData ./internal/resources/integrations/waf_ingestion/
 
 # CloudFront E2E only (~10 min — creates distribution + real-time logs, validates data)
@@ -197,7 +197,7 @@ TF_ACC=1 go test -v -timeout 60m -run TestAccCloudfrontIngestion_endToEndData ./
 ## 5. Interactive lab (manual testing)
 
 The `lab/` directory creates a single CloudFront distribution with WAF + real-time
-logs, ingesting both into Rawtree. Use it for manual testing and demos.
+logs, ingesting both into Tinybird RawTree. Use it for manual testing and demos.
 
 ```sh
 cd test/lab

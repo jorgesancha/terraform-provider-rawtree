@@ -25,7 +25,7 @@ const defaultImage = "ghcr.io/rawtreedb/supabase-etl:latest"
 
 func resourceSchema() schema.Schema {
 	return schema.Schema{
-		Description: "Manages Supabase Postgres CDC ingestion into Rawtree using a single ECS Fargate service.",
+		Description: "Manages Supabase Postgres CDC ingestion into Tinybird RawTree using a single ECS Fargate service.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed:    true,
@@ -72,7 +72,7 @@ func resourceSchema() schema.Schema {
 				Optional:    true,
 				Computed:    true,
 				Default:     stringdefault.StaticString(defaultImage),
-				Description: "Container image for the Rawtree Supabase ETL worker.",
+				Description: "Container image for the Tinybird RawTree Supabase ETL worker.",
 			},
 			"cpu": schema.Int64Attribute{
 				Optional:    true,
@@ -95,7 +95,7 @@ func resourceSchema() schema.Schema {
 			"subnet_ids": schema.ListAttribute{
 				ElementType: types.StringType,
 				Required:    true,
-				Description: "Subnet IDs where the Fargate task should run. These subnets need outbound access to Supabase and Rawtree.",
+				Description: "Subnet IDs where the Fargate task should run. These subnets need outbound access to Supabase and Tinybird RawTree.",
 				Validators: []validator.List{
 					listvalidator.SizeAtLeast(1),
 				},
@@ -176,27 +176,27 @@ func resourceSchema() schema.Schema {
 			"organization": schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
-				Description: "The Rawtree organization. Defaults to the provider-level organization.",
+				Description: "The Tinybird RawTree organization. Defaults to the provider-level organization.",
 			},
 			"database": schema.StringAttribute{
 				Optional: true, Computed: true,
 				Validators:  []validator.String{stringvalidator.ConflictsWith(path.MatchRoot("project"))},
-				Description: "RawTree destination database. Defaults to the provider database.",
+				Description: "Tinybird RawTree destination database. Defaults to the provider database.",
 			},
 			"project": schema.StringAttribute{
 				DeprecationMessage: "Use database instead.",
 				Optional:           true,
 				Computed:           true,
-				Description:        "Deprecated alias for the RawTree destination database.",
+				Description:        "Deprecated alias for the Tinybird RawTree destination database.",
 			},
 			"api_url": schema.StringAttribute{
 				Computed:    true,
-				Description: "The Rawtree API URL from provider config.",
+				Description: "The Tinybird RawTree API URL from provider config.",
 			},
 			"api_key_hash": schema.StringAttribute{
 				Computed:    true,
 				Sensitive:   true,
-				Description: "Hash of the Rawtree API key. Changes trigger a new task definition and service deployment.",
+				Description: "Hash of the Tinybird RawTree API key. Changes trigger a new task definition and service deployment.",
 			},
 			"cluster_arn": schema.StringAttribute{
 				Computed:    true,
@@ -220,7 +220,7 @@ func resourceSchema() schema.Schema {
 			},
 			"config_secret_arn": schema.StringAttribute{
 				Computed:    true,
-				Description: "ARN of the managed Secrets Manager secret holding the Rawtree API key — and, when supplied inline, the Supabase database URL and CA certificate — as JSON keys.",
+				Description: "ARN of the managed Secrets Manager secret holding the Tinybird RawTree API key — and, when supplied inline, the Supabase database URL and CA certificate — as JSON keys.",
 			},
 		},
 	}

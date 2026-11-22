@@ -1,14 +1,14 @@
 ---
-page_title: "rawtree_database List Resource - RawTree"
-subcategory: "RawTree"
+page_title: "rawtree_database List Resource - Tinybird RawTree"
+subcategory: "Tinybird RawTree"
 description: Discover databases in an existing cluster and generate Terraform configuration.
 ---
 
 # rawtree_database
 
-Use Terraform 1.14 or later to discover databases in one RawTree cluster and generate their resource and import blocks in one command.
+Use Terraform 1.14 or later to discover databases in one Tinybird RawTree cluster and generate their resource and import blocks in one command.
 
-Configure the RawTree provider with a credential that can list databases in the target cluster. Add the following to `databases.tfquery.hcl`, replacing the organization and cluster names.
+Configure the Tinybird RawTree provider with a credential that can list databases in the target cluster. Add the following to `databases.tfquery.hcl`, replacing the organization and cluster names.
 
 ```hcl
 list "rawtree_database" "cluster" {

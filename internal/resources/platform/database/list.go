@@ -14,7 +14,7 @@ func NewListResource() list.ListResource { return &databaseResource{} }
 
 func (r *databaseResource) ListResourceConfigSchema(_ context.Context, _ list.ListResourceSchemaRequest, resp *list.ListResourceSchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "List databases that Terraform can manage in one RawTree cluster.",
+		Description: "List databases that Terraform can manage in one Tinybird RawTree cluster.",
 		Attributes: map[string]schema.Attribute{
 			"organization": schema.StringAttribute{Required: true, Description: "Organization name.", Validators: scopeValidators},
 			"cluster":      schema.StringAttribute{Required: true, Description: "Cluster name within the organization.", Validators: scopeValidators},

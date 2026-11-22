@@ -1,9 +1,9 @@
 """
-Rawtree S3 Batch Ingestion - AWS Glue Job
+Tinybird RawTree S3 Batch Ingestion - AWS Glue Job
 
 This script lists all objects in a specified S3 bucket/prefix,
 filters by file pattern, generates presigned URLs, and sends them
-to the Rawtree API for direct ingestion using a thread pool for
+to the Tinybird RawTree API for direct ingestion using a thread pool for
 concurrent processing.
 
 Required Glue job parameters:
@@ -23,7 +23,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import boto3
 
-print("Rawtree S3 Batch Ingestion starting...")
+print("Tinybird RawTree S3 Batch Ingestion starting...")
 
 
 def get_args():
@@ -109,7 +109,7 @@ def matches_filter(key):
 
 
 def ingest_key(key):
-    """Generate a presigned URL and send it to the Rawtree API."""
+    """Generate a presigned URL and send it to the Tinybird RawTree API."""
     global total, errors
 
     # Each thread gets its own S3 client (boto3 clients are not thread-safe).
@@ -132,7 +132,7 @@ def ingest_key(key):
         with urllib.request.urlopen(req, timeout=300) as response:
             result = json.load(response)
             if not isinstance(result.get("inserted"), int):
-                raise RuntimeError("RawTree did not confirm how many rows were inserted")
+                raise RuntimeError("Tinybird RawTree did not confirm how many rows were inserted")
         with lock:
             total += 1
         print(f"OK: {key} -> {result}")

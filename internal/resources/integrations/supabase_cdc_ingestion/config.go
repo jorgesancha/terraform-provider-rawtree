@@ -60,7 +60,7 @@ type ecsNames struct {
 	LogGroupName         string
 	ExecutionRoleName    string
 	// ConfigSecretName is the single managed Secrets Manager secret holding the
-	// Rawtree API key plus any inline DATABASE_URL / POSTGRES_TLS_ROOT_CERT_PEM
+	// Tinybird RawTree API key plus any inline DATABASE_URL / POSTGRES_TLS_ROOT_CERT_PEM
 	// values, encoded as JSON. ECS resolves individual env vars via the
 	// JSON-key valueFrom syntax.
 	ConfigSecretName string

@@ -376,7 +376,7 @@ func TestAccWafIngestion_endToEndData(t *testing.T) {
 	})
 }
 
-// testAccE2EGenerateAndValidate sends traffic to CloudFront and polls Rawtree
+// testAccE2EGenerateAndValidate sends traffic to CloudFront and polls Tinybird RawTree
 // until the expected row count appears or the timeout expires.
 func testAccE2EGenerateAndValidate(tableName string, numRequests int) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
@@ -425,7 +425,7 @@ func generateCloudFrontTraffic(domain string, numRequests int) error {
 	return nil
 }
 
-// testAccWaitForRawtreeData polls Rawtree until the table has at least minRows
+// testAccWaitForRawtreeData polls Tinybird RawTree until the table has at least minRows
 // or the timeout expires.
 func testAccWaitForRawtreeData(tableName string, minRows int, timeout time.Duration) error {
 	apiURL := os.Getenv("RAWTREE_URL")

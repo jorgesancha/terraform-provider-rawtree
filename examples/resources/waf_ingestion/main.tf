@@ -12,7 +12,7 @@ provider "rawtree" {
   # or rtree CLI config from ~/.config/rtree/config.json
 }
 
-# Stream WAF logs from a CloudFront Web ACL to Rawtree in real-time.
+# Stream WAF logs from a CloudFront Web ACL to Tinybird RawTree in real-time.
 # Creates a Kinesis Data Firehose delivery stream with HTTP endpoint
 # destination and configures WAF logging.
 resource "rawtree_waf_ingestion" "waf_logs" {

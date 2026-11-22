@@ -1,8 +1,8 @@
-# Terraform Provider for RawTree
+# Terraform Provider for Tinybird RawTree
 
-Use Terraform to manage RawTree databases and external ingestion pipelines.
+Use Terraform to manage Tinybird RawTree databases and external ingestion pipelines.
 
-## RawTree
+## Tinybird RawTree
 
 [`rawtree_database`](docs/resources/database.md) manages a named database in an existing cluster. Use the [database list resource](docs/list-resources/database.md) to generate Terraform configuration for the databases already there.
 
@@ -19,28 +19,28 @@ Use Terraform to manage RawTree databases and external ingestion pipelines.
 
 ### S3 Ingestion (`rawtree_s3_ingestion`)
 
-- **Batch ingestion**: Automatically ingest all existing objects from an S3 bucket/prefix into a Rawtree table using AWS Glue
+- **Batch ingestion**: Automatically ingest all existing objects from an S3 bucket/prefix into a Tinybird RawTree table using AWS Glue
 - **Ongoing ingestion**: Set up EventBridge + Lambda to automatically ingest new objects as they arrive
 - **Format support**: JSON, CSV, and Parquet (including gzipped variants)
-- **Presigned URL ingestion**: Files are ingested via presigned URLs — Rawtree downloads directly from S3, no data passes through Glue/Lambda
+- **Presigned URL ingestion**: Files are ingested via presigned URLs — Tinybird RawTree downloads directly from S3, no data passes through Glue/Lambda
 
 ### WAF Ingestion (`rawtree_waf_ingestion`)
 
-- **Real-time streaming**: Stream AWS WAF logs directly to Rawtree via Kinesis Data Firehose
-- **Zero code**: No Lambda or Glue required — Firehose delivers to the Rawtree HTTP endpoint
+- **Real-time streaming**: Stream AWS WAF logs directly to Tinybird RawTree via Kinesis Data Firehose
+- **Zero code**: No Lambda or Glue required — Firehose delivers to the Tinybird RawTree HTTP endpoint
 - **S3 backup**: Failed deliveries are automatically backed up with configurable retention
 - **Configurable buffering**: Tune delivery latency vs. throughput with buffer size and interval settings
 
 ### CloudFront Ingestion (`rawtree_cloudfront_ingestion`)
 
-- **Real-time streaming**: Stream CloudFront access logs to Rawtree via Kinesis Data Stream and Firehose
+- **Real-time streaming**: Stream CloudFront access logs to Tinybird RawTree via Kinesis Data Stream and Firehose
 - **Configurable fields**: Choose which CloudFront log fields to include (20 recommended fields by default)
 - **Sampling**: Control the percentage of requests that generate log records (1-100%)
 - **S3 backup**: Failed deliveries are automatically backed up with a 30-day lifecycle policy
 
 ### Supabase CDC Ingestion (`rawtree_supabase_cdc_ingestion`)
 
-- **Long-running CDC**: Run the Rawtree Supabase ETL worker as a single ECS Fargate service
+- **Long-running CDC**: Run the Tinybird RawTree Supabase ETL worker as a single ECS Fargate service
 - **Managed runtime**: Creates ECS, IAM, CloudWatch Logs, and Secrets Manager resources
 - **Secret-aware**: Supports existing Secrets Manager ARNs for the Supabase database URL and CA certificate
 - **Configurable sizing**: Tune Fargate CPU and memory with validated combinations
@@ -50,7 +50,7 @@ Use Terraform to manage RawTree databases and external ingestion pipelines.
 - [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.0
 - [Go](https://golang.org/doc/install) >= 1.26.1 (to build the provider)
 - For ingestion integrations, AWS credentials with the [required permissions](#required-aws-permissions)
-- A [Rawtree](https://rawtree.dev) account with an API key
+- A [Tinybird RawTree](https://rawtree.dev) account with an API key
 
 ## Installation
 
@@ -75,7 +75,7 @@ For ingestion integrations, the provider resolves settings in this order:
 
 1. Provider configuration block
 2. Environment variables (`RAWTREE_API_KEY`, `RAWTREE_URL`, `RAWTREE_ORG`, `RAWTREE_DATABASE`)
-3. Rawtree CLI config file (`~/.config/rtree/config.json` — created by `rtree login`)
+3. Tinybird RawTree CLI config file (`~/.config/rtree/config.json` — created by `rtree login`)
 
 ```hcl
 provider "rawtree" {
@@ -273,7 +273,7 @@ go build -v ./...
 # Unit tests
 go test -v ./...
 
-# Acceptance tests (requires AWS + Rawtree credentials)
+# Acceptance tests (requires AWS + Tinybird RawTree credentials)
 # See test/README.md for setup instructions
 TF_ACC=1 go test -v -timeout 30m ./internal/resources/integrations/s3_ingestion/
 TF_ACC=1 go test -v -timeout 30m ./internal/resources/integrations/waf_ingestion/

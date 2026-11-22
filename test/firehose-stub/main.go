@@ -1,4 +1,4 @@
-// firehose-stub is a local HTTP server that implements the Rawtree
+// firehose-stub is a local HTTP server that implements the Tinybird RawTree
 // ?transform=firehose endpoint and a minimal query endpoint. It receives
 // Kinesis Data Firehose HTTP deliveries, decodes the base64 records, stores
 // them in memory keyed by table, and exposes a query endpoint so the E2E

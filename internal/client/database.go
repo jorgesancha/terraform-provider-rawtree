@@ -63,12 +63,12 @@ func (c *PlatformClient) ListDatabases(ctx context.Context, organization, cluste
 		return nil, err
 	}
 	if result.Databases == nil {
-		return nil, fmt.Errorf("RawTree returned an incomplete database list")
+		return nil, fmt.Errorf("Tinybird RawTree returned an incomplete database list")
 	}
 	names := make([]string, 0, len(result.Databases))
 	for _, item := range result.Databases {
 		if item.Name == "" {
-			return nil, fmt.Errorf("RawTree returned a database without a name")
+			return nil, fmt.Errorf("Tinybird RawTree returned a database without a name")
 		}
 		names = append(names, item.Name)
 	}
@@ -87,7 +87,7 @@ func (c *PlatformClient) CreateDatabase(ctx context.Context, db Database) error 
 		return err
 	}
 	if result.Database.Name != db.Name {
-		return fmt.Errorf("RawTree did not confirm creation of database %q", db.Name)
+		return fmt.Errorf("Tinybird RawTree did not confirm creation of database %q", db.Name)
 	}
 	return nil
 }
@@ -99,7 +99,7 @@ func (c *PlatformClient) DeleteDatabase(ctx context.Context, db Database) error 
 	}
 	// The API returns deleted=false if the database is already absent.
 	if result.Deleted == nil {
-		return fmt.Errorf("RawTree did not confirm deletion of database %q", db.Name)
+		return fmt.Errorf("Tinybird RawTree did not confirm deletion of database %q", db.Name)
 	}
 	return nil
 }
@@ -128,7 +128,7 @@ func (c *PlatformClient) databaseRequest(ctx context.Context, db Database, metho
 	if resp.StatusCode != http.StatusOK {
 		var problem struct{ Message string }
 		_ = json.NewDecoder(io.LimitReader(resp.Body, 8192)).Decode(&problem)
-		return fmt.Errorf("RawTree %s %s returned HTTP %d: %s", method, req.URL.Path, resp.StatusCode, problem.Message)
+		return fmt.Errorf("Tinybird RawTree %s %s returned HTTP %d: %s", method, req.URL.Path, resp.StatusCode, problem.Message)
 	}
 	return json.NewDecoder(resp.Body).Decode(result)
 }

@@ -33,10 +33,10 @@ func Destination(ctx context.Context, config tfsdk.Config, c *client.RawtreeClie
 		database = types.StringValue(c.Database)
 	}
 	if !org.IsUnknown() && org.ValueString() == "" {
-		diags.AddError("Missing RawTree organization", "Set organization on the integration or provider, or set RAWTREE_ORG.")
+		diags.AddError("Missing Tinybird RawTree organization", "Set organization on the integration or provider, or set RAWTREE_ORG.")
 	}
 	if !database.IsUnknown() && database.ValueString() == "" {
-		diags.AddError("Missing RawTree database", "Set database on the integration or provider, or set RAWTREE_DATABASE.")
+		diags.AddError("Missing Tinybird RawTree database", "Set database on the integration or provider, or set RAWTREE_DATABASE.")
 	}
 	return
 }

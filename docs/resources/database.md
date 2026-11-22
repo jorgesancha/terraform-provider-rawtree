@@ -1,7 +1,7 @@
 ---
-page_title: "rawtree_database Resource - RawTree"
-subcategory: "RawTree"
-description: Manage a named database in a RawTree cluster.
+page_title: "rawtree_database Resource - Tinybird RawTree"
+subcategory: "Tinybird RawTree"
+description: Manage a named database in a Tinybird RawTree cluster.
 ---
 
 # rawtree_database
@@ -25,13 +25,13 @@ resource "rawtree_database" "analytics" {
 - `cluster` (required, string) is the cluster name within the organization.
 - `name` (required, string) starts with a letter and contains up to 64 ASCII letters, digits, or underscores.
 
-Changing any argument replaces the database. RawTree manages the built-in databases.
+Changing any argument replaces the database. Tinybird RawTree manages the built-in databases.
 The read-only `id` contains the organization, cluster, and database names.
 
 ## Authentication
 
 Supply a cluster-scoped admin API key through `RAWTREE_MANAGEMENT_TOKEN`, or use a user credential with permission to manage databases in the selected cluster.
-This resource calls the RawTree API directly.
+This resource calls the Tinybird RawTree API directly.
 
 ## Import
 
@@ -41,6 +41,6 @@ Import an existing database by its organization, cluster, and name.
 terraform import rawtree_database.analytics acme/production/analytics
 ```
 
-Give each database one Terraform owner. The RawTree create endpoint accepts repeated requests for the same name.
+Give each database one Terraform owner. The Tinybird RawTree create endpoint accepts repeated requests for the same name.
 
 To discover databases in an existing cluster and generate their configuration together, use the [database list resource](../list-resources/database.md).
